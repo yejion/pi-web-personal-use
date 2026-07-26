@@ -1,1 +1,0 @@
-import{existsSync}from"fs";console.log("C:\",existsSync("C:\"));console.log("D:\",existsSync("D:\"));console.log("Z:\",existsSync("Z:\"));
