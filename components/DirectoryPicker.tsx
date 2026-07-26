@@ -37,6 +37,7 @@ interface Props {
   onSelect: (path: string) => void;
   busy?: boolean;
   error?: string | null;
+  initialPath?: string | null;
 }
 
 export function DirectoryPicker({ onCancel, onSelect, busy = false, error, initialPath }: Props) {

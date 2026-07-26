@@ -347,7 +347,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const [modelThinkingLevelMaps, setModelThinkingLevelMaps] = useState<Record<string, Record<string, string | null>>>({});
   const [newSessionModel, setNewSessionModel] = useState<SelectedModel | null>(null);
   const [newSessionDefaultModel, setNewSessionDefaultModel] = useState<SelectedModel | null>(null);
-  const [toolPreset, setToolPreset] = useState<"none" | "default" | "full">("default");
+  const [toolPreset, setToolPreset] = useState<import("@/lib/tool-presets").ToolPreset>("default");
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelOption>("auto");
   const [retryInfo, setRetryInfo] = useState<{ attempt: number; maxAttempts: number; errorMessage?: string } | null>(null);
   const [contextUsage, setContextUsage] = useState<{ percent: number | null; contextWindow: number; tokens: number | null } | null>(null);
@@ -389,7 +389,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const promptRunIdRef = useRef(0);
   const optimisticUserMessageKeyRef = useRef<string | null>(null);
 
-  const setToolPresetState = opts.setToolPreset ?? setToolPreset;
+  const setToolPresetState: (p: import("@/lib/tool-presets").ToolPreset) => void = (opts.setToolPreset ?? setToolPreset) as any;
 
   const currentModel = currentModelOverride ?? data?.context.model ?? pendingModel ?? null;
   const displayModel = isNew ? (newSessionModel ?? newSessionDefaultModel) : currentModel;
@@ -406,7 +406,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       if (msg.role === "user") userMessages += 1;
       if (msg.role === "toolResult") {
         toolResults += 1;
-        var tr = msg;
+        var tr = msg as any;
         if (tr.usage) {
           tokens.input += tr.usage.input ?? 0;
           tokens.output += tr.usage.output ?? 0;
@@ -532,7 +532,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const tools = await sendAgentCommand<ToolEntry[]>(sid, { type: "get_tools" });
       if (tools) {
         const { getPresetFromTools } = await import("@/lib/tool-presets");
-        setToolPresetState(getPresetFromTools(tools));
+        setToolPresetState(getPresetFromTools(tools) as any);
       }
     } catch (e) {
       console.error("Failed to load tools:", e);
@@ -1479,7 +1479,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     }
   }, []);
 
-  const handleToolPresetChange = useCallback(async (preset: "none" | "default" | "full") => {
+  const handleToolPresetChange = useCallback(async (preset: import("@/lib/tool-presets").ToolPreset) => {
     const toolNames = getToolNamesForPreset(preset);
     setToolPresetState(preset);
     const sid = sessionIdRef.current ?? await ensuringNewSessionRef.current;

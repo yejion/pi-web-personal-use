@@ -218,8 +218,8 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onSessionCreate
   const sessionBusy = agentRunning || bashRunning;
 
   useEffect(function() {
-    fetch("/api/modes").then(function(r){return r.json()}).then(function(d){
-      var names=Object.keys(d||{});var labels={};
+    fetch("/api/modes").then(function(r){return r.json()}).then(function(d: any){
+      var names=Object.keys(d||{});var labels: Record<string,string> = {};
       names.forEach(function(n){labels[n]=(d[n].emoji||"")+d[n].label});
       setPresets({names:names,labels:labels});
     }).catch(function(){});

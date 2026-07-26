@@ -4,7 +4,7 @@ export interface ToolEntry {
   active: boolean;
 }
 
-export type ToolPreset = "none" | "default" | "full";
+export type ToolPreset = "none" | "default" | "full" | "plan";
 
 export const PRESET_NONE: string[] = [];
 export const PRESET_DEFAULT: string[] = ["read", "bash", "edit", "write"];

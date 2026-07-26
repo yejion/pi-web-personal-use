@@ -45,8 +45,8 @@ interface Props {
   isCompacting?: boolean;
   compactError?: string | null;
   compactResult?: CompactResultInfo | null;
-  toolPreset?: "none" | "default" | "full";
-  onToolPresetChange?: (preset: "none" | "default" | "full") => void;
+  toolPreset?: import("@/lib/tool-presets").ToolPreset;
+  onToolPresetChange?: (preset: import("@/lib/tool-presets").ToolPreset) => void;
   thinkingLevel?: "auto" | "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
   onThinkingLevelChange?: (level: "auto" | "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max") => void;
   availableThinkingLevels?: string[] | null;
@@ -67,6 +67,7 @@ interface Props {
   cost?: number;
   /** Session working directory — enables the @ file autocomplete menu */
   cwd?: string | null;
+  contextUsage?: { percent: number | null; contextWindow: number; tokens: number | null } | null;
   presets?: {names:string[];labels:Record<string,string>;active?:string};
   onPresetChange?: (preset: string) => void;
 }
@@ -79,7 +80,7 @@ export interface ChatInputHandle {
 }
 
 const TOOL_PRESETS = ["off", "default", "full"] as const;
-const TOOL_PRESET_MAP: Record<"off" | "default" | "full", "none" | "default" | "full"> = { off: "none", default: "default", full: "full" };
+const TOOL_PRESET_MAP: Record<"off" | "default" | "full", import("@/lib/tool-presets").ToolPreset> = { off: "none", default: "default", full: "full" };
 const COMPOSITION_END_ENTER_GRACE_MS = 100;
 const MODEL_OPTION_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
@@ -2178,7 +2179,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             {contextUsage && contextUsage.contextWindow > 0 && (() => {
               var pct = contextUsage.percent;
               var ctxColor = pct !== null && pct > 90 ? "#ef4444" : pct !== null && pct > 70 ? "rgba(234,179,8,0.95)" : "var(--text-muted)";
-              var fmt = function(n) { return n >= 1000 ? (n/1000).toFixed(1) + "k" : String(n); };
+              var fmt = function(n: number) { return n >= 1000 ? (n/1000).toFixed(1) + "k" : String(n); };
               var used = contextUsage.tokens !== null ? fmt(contextUsage.tokens) : "?";
               var total = fmt(contextUsage.contextWindow);
               var label = used + "/" + total;
