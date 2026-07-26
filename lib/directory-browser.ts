@@ -1,3 +1,4 @@
+import { existsSync } from "fs";
 import { readdir, realpath, stat } from "fs/promises";
 import { homedir } from "os";
 import path from "path";
@@ -5,6 +6,24 @@ import path from "path";
 export interface BrowsableDirectory {
   name: string;
   path: string;
+}
+
+export function getAvailableDrives(): BrowsableDirectory[] {
+  return getWindowsDrives();
+}
+
+function getWindowsDrives(): BrowsableDirectory[] {
+  if (process.platform !== "win32") return [];
+  const drives: BrowsableDirectory[] = [];
+  for (let letter = 65; letter <= 90; letter++) {
+    const root = String.fromCharCode(letter) + ":\\";
+    try {
+      if (existsSync(root)) {
+        drives.push({ name: root, path: root });
+      }
+    } catch { /* skip inaccessible */ }
+  }
+  return drives;
 }
 
 export function getBrowseStartDirectory(directory?: string): string {

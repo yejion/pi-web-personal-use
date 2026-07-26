@@ -860,12 +860,14 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         </div>
 
         {/* CWD picker */}
-        <div ref={dropdownRef} style={{ position: "relative" }}>
+        <div ref={dropdownRef} style={{ position: "relative", display: "flex", gap: 6, alignItems: "center" }}>
           <button
             onClick={() => setDropdownOpen((v) => !v)}
             title={selectedProject ?? selectedCwd ?? ""}
             style={{
-              width: "100%",
+              flex: 1,
+              minWidth: 0,
+              overflow: "hidden",
               display: "flex",
               alignItems: "center",
               padding: "6px 10px",
@@ -905,6 +907,27 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
               </span>
             )}
           </button>
+          <button
+            onClick={() => { setCustomPathOpen(true); setDropdownOpen(false); }}
+            title="Change directory"
+            aria-label="Change directory"
+            style={{
+              flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 32, height: 32,
+              background: "var(--bg-hover)",
+              border: "1px solid var(--border)",
+              borderRadius: 7,
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              transition: "background 0.12s, color 0.12s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-selected)"; e.currentTarget.style.color = "var(--text)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-muted)"; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="m12 15 3-3-3-3"/><path d="M9 12h6"/></svg>
+          </button>
+
 
           <AnimatedDropdown
             open={dropdownOpen}
@@ -921,6 +944,22 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
               overflow: "hidden",
             }}
           >
+              {/* Default cwd */}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDefaultCwd(); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 7,
+                  width: "100%", padding: "8px 10px",
+                  background: "none", border: "none",
+                  borderBottom: "1px solid var(--border)",
+                  color: "var(--accent)", cursor: "pointer",
+                  textAlign: "left", fontSize: 11, fontWeight: 500,
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M1 3A1 1 0 0 1 2 2H4L5 3.5H8.5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 1 8V3Z"/></svg>
+                <span>Use default directory</span>
+              </button>
+
               {showProjectFilter && (
                 <div style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
                   <input
@@ -994,32 +1033,6 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
                   <div style={{ padding: "8px 10px", fontSize: 11, color: "var(--text-dim)" }}>No matching projects</div>
                 )}
               </div>
-
-              {/* Default cwd shortcut */}
-              {!customPathOpen && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDefaultCwd(); }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 7,
-                    width: "100%",
-                    padding: "8px 10px",
-                    background: "none",
-                    border: "none",
-                    borderTop: visibleProjects.length > 0 ? "1px solid var(--border)" : "none",
-                    color: "var(--text-muted)",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    fontSize: 11,
-                  }}
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                    <path d="M1 3A1 1 0 0 1 2 2H4L5 3.5H8.5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 1 8V3Z" />
-                  </svg>
-                  <span>Use default directory</span>
-                </button>
-              )}
 
               {/* Custom path directory picker */}
               <button

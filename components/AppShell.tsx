@@ -856,7 +856,7 @@ export function AppShell() {
             const t = sessionStats?.tokens;
             const c = sessionStats?.cost ?? 0;
             const fmt = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n);
-            const costStr = c > 0 ? (c >= 0.01 ? `$${c.toFixed(2)}` : `<$0.01`) : null;
+            const costStr = c > 0 ? (c >= 0.01 ? `¥${c.toFixed(2)}` : `<¥0.01`) : null;
 
             let ctxColor = "var(--text-muted)";
             let ctxStr: string | null = null;
@@ -873,7 +873,7 @@ export function AppShell() {
               tooltipParts.push(`out: ${t.output.toLocaleString()}`);
               tooltipParts.push(`cache read: ${t.cacheRead.toLocaleString()}`);
               tooltipParts.push(`cache write: ${t.cacheWrite.toLocaleString()}`);
-              if (c > 0) tooltipParts.push(`cost: $${c.toFixed(4)}`);
+              if (c > 0) tooltipParts.push(`cost: ¥${c.toFixed(4)}`);
             }
             if (contextUsage?.contextWindow) {
               const pct = contextUsage.percent;
@@ -1020,7 +1020,7 @@ export function AppShell() {
                     const ctx = contextUsage ?? sessionStats.contextUsage;
                     const formatCompact = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n);
                     const extraTokenRows = [
-                      ...(sessionStats.cost > 0 ? [["Cost", `$${sessionStats.cost.toFixed(4)}`]] : []),
+                      ...(sessionStats.cost > 0 ? [["Cost", `¥${sessionStats.cost.toFixed(4)}`]] : []),
                       ...(ctx?.contextWindow ? [["Context", `${ctx.percent !== null ? `${ctx.percent.toFixed(1)}%` : "?"} / ${formatCompact(ctx.contextWindow)}`]] : []),
                     ];
                     const section = (

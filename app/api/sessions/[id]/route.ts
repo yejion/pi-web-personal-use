@@ -126,6 +126,36 @@ export async function GET(
 
     const sm = SessionManager.open(filePath);
     const entries = sm.getEntries() as never;
+    // Compute total cost from model pricing (RMB per 1M tokens)
+    const PRICING: Record<string, { inputMiss: number; inputHit: number; output: number }> = {
+      "deepseek-v4-flash": { inputMiss: 1.00, inputHit: 0.02, output: 2.00 },
+      "deepseek-v4-pro":   { inputMiss: 3.00, inputHit: 0.025, output: 6.00 },
+    };
+    function getPrice(modelId: string | null | undefined) {
+      if (!modelId) return null;
+      const lower = modelId.toLowerCase();
+      for (const [key, price] of Object.entries(PRICING)) {
+        if (lower.includes(key)) return price;
+      }
+      return null;
+    }
+    let totalCost = 0;
+    let lastModel: string | null = null;
+    for (const entry of entries as any[]) {
+      // Track model from assistant messages
+      if (entry.type === "message" && entry.message?.role === "assistant") {
+        lastModel = entry.message.responseModel || entry.message.model || lastModel;
+      }
+      const usage = entry.message?.usage ?? entry.usage;
+      if (!usage || (!usage.input && !usage.output)) continue;
+      const price = getPrice(lastModel);
+      if (price) {
+        const inMiss = usage.input ?? 0;
+        const inHit = usage.cacheRead ?? 0;
+        const out = usage.output ?? 0;
+        totalCost += (inMiss * price.inputMiss + inHit * price.inputHit + out * price.output + (usage.cacheWrite ?? 0) * 0) / 1000000;
+      }
+    }
     const leafId = sm.getLeafId();
     const tree = projectTreeForResponse(sm.getTree());
     const searchParams = new URL(req.url).searchParams;
@@ -161,6 +191,7 @@ export async function GET(
       sessionId: id,
       filePath,
       info,
+      cost: totalCost,
       leafId,
       tree,
       context,

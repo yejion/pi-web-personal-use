@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stat } from "fs/promises";
 import {
+  getAvailableDrives,
   getBrowseStartDirectory,
   getParentDirectory,
   listDirectories,
@@ -28,10 +29,13 @@ export async function GET(request: NextRequest) {
 
     const directories = await listDirectories(resolved);
 
+    const drives = getAvailableDrives();
+
     return NextResponse.json({
       path: resolved,
       parentPath: getParentDirectory(resolved),
       directories,
+      drives,
     });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

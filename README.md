@@ -70,6 +70,7 @@ npx @agegr/pi-web@latest
 - **Try different directions safely**: continue from an earlier message or fork a session into a separate route.
 - **Work across branches**: switch Git worktrees from the sidebar so new sessions and the Explorer follow the checkout you choose.
 - **Chat beside the project**: browse files on the left and preview source, docs, images, audio, and PDFs on the right while the agent works.
+- **Bottom status bar**: real-time session cost (RMB, calculated from model pricing) and context usage (xx.xk/total) shown below the input, updated during runs and persisted across restarts.
 - **See session state clearly**: context usage, cost, compaction state, and system prompt details are visible from the top bar.
 - **Configure less from the terminal**: manage models, login/API keys, model tests, and skill switches from the web UI.
 
@@ -109,7 +110,7 @@ app/
     auth/           # OAuth and API key management
     cwd/browse/     # browsable server directory listing
     cwd/validate/   # custom working directory validation
-    default-cwd/    # pi default working directory lookup
+    default-cwd/    # default working directory (~/.pi/default/YYYY-MM-DD)
     files/          # file listing, reading, preview, and watching
     home/           # current user home directory
     models/         # available models, default model, thinking levels
@@ -119,16 +120,16 @@ app/
 components/
   AppShell.tsx        # main layout, URL state, top panels, file tabs
   SessionSidebar.tsx  # project selector, session tree, Explorer
-  DirectoryPicker.tsx # browsable and editable working-directory picker
+  DirectoryPicker.tsx # working directory picker (browse, type path, switch drives)
   ChatWindow.tsx      # messages, SSE, image drag/drop, minimap
-  ChatInput.tsx       # input bar, model/tools/thinking/compact/slash controls
+  ChatInput.tsx       # input bar, model/tools/thinking/compact/slash controls, cost/context display
   MessageView.tsx     # message, thinking, tool call/result rendering
   ModelsConfig.tsx    # model and auth configuration panel
   SkillsConfig.tsx    # skill management panel
   FileExplorer.tsx    # file tree
   FileViewer.tsx      # source, diff, image, audio, PDF, DOCX preview
 lib/
-  directory-browser.ts # directory normalization and safe listing helpers
+  directory-browser.ts # directory normalization and safe listing helpers (incl. Windows drive detection)
   http-dispatcher.ts  # HTTP(S) proxy setup for server-side fetch
   rpc-manager.ts      # AgentSessionWrapper lifecycle and global registry
   session-reader.ts   # parses .jsonl session files and branch contexts

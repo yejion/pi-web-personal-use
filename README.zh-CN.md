@@ -68,6 +68,7 @@ npx @agegr/pi-web@latest
 - **放心试不同方向**：可以从某条历史消息重新开始，也可以复制出一条独立的新路线，探索方案时不怕弄乱原来的对话。
 - **跨分支工作**：在侧边栏切换 Git worktree，让新会话和 Explorer 跟随你选择的 checkout。
 - **边聊边看项目文件**：左侧浏览项目文件，右侧打开源码、文档、图片、音频和 PDF；文件变化会自动刷新，适合边让 agent 改边检查结果。
+- **底部状态栏**：输入框下方实时显示会话花费（¥，支持按模型定价计算）和上下文使用量（xx.xk/总窗口），运行时自动更新，空闲后持久化保存。
 - **随时掌握会话状态**：在顶部就能看到上下文占用、花费、压缩结果和系统提示，长会话不再像黑箱。
 - **少离开当前界面**：模型、登录/API key、模型测试和技能开关都能在网页里处理，配置 agent 时不用在多个工具之间来回切换。
 
@@ -107,7 +108,7 @@ app/
     auth/           # OAuth 和 API key 管理
     cwd/browse/     # 服务端目录浏览
     cwd/validate/   # 自定义工作目录校验
-    default-cwd/    # 获取 pi 默认工作目录
+    default-cwd/    # 默认工作目录（~/.pi/default/YYYY-MM-DD）
     files/          # 文件列表、读取、预览、watch
     home/           # 当前用户 home 目录
     models/         # 可用模型、默认模型、thinking levels
@@ -117,16 +118,16 @@ app/
 components/
   AppShell.tsx        # 主布局、URL 状态、顶部面板、文件标签
   SessionSidebar.tsx  # 项目选择、会话树、Explorer
-  DirectoryPicker.tsx # 支持浏览和路径输入的工作目录选择器
+  DirectoryPicker.tsx # 工作目录选择器（支持路径浏览、手动输入、驱动器切换）
   ChatWindow.tsx      # 消息区、SSE、拖拽图片、minimap
-  ChatInput.tsx       # 输入栏、模型/工具/thinking/compact/slash controls
+  ChatInput.tsx       # 输入栏、模型/工具/thinking/compact/slash controls、花费/上下文显示
   MessageView.tsx     # 消息、thinking、tool call/result 渲染
   ModelsConfig.tsx    # 模型和认证配置面板
   SkillsConfig.tsx    # 技能管理面板
   FileExplorer.tsx    # 文件树
   FileViewer.tsx      # 源码、diff、图片、音频、PDF、DOCX 预览
 lib/
-  directory-browser.ts # 目录规范化和安全枚举工具
+  directory-browser.ts # 目录规范化和安全枚举工具（含 Windows 驱动器列表）
   http-dispatcher.ts  # 服务端 fetch 的 HTTP(S) 代理配置
   rpc-manager.ts      # AgentSessionWrapper 生命周期和全局 registry
   session-reader.ts   # 解析 .jsonl 会话文件和分支上下文

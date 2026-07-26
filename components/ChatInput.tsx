@@ -63,8 +63,12 @@ interface Props {
   onSoundToggle?: () => void;
   onAudioUnlock?: () => void;
   draftKey?: string;
+  /** Session cost (RMB). */
+  cost?: number;
   /** Session working directory — enables the @ file autocomplete menu */
   cwd?: string | null;
+  presets?: {names:string[];labels:Record<string,string>;active?:string};
+  onPresetChange?: (preset: string) => void;
 }
 
 export interface ChatInputHandle {
@@ -256,7 +260,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   soundEnabled, onSoundToggle, onAudioUnlock,
   onPromptWithStreamingBehavior,
   draftKey,
+  cost,
+  contextUsage,
   cwd,
+  presets,
+  onPresetChange,
 }: Props, ref) {
   const isMobile = useIsMobile();
   const [value, setValue] = useState(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
@@ -272,6 +280,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const bashMode = attachedImages.length === 0 && trimmedValue.startsWith("!");
   const bashExcluded = bashMode && trimmedValue.startsWith("!!");
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
+  const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
+  const presetDropdownRef = useRef<HTMLDivElement>(null);
   const [slashActiveIndex, setSlashActiveIndex] = useState(0);
   const [atQuery, setAtQuery] = useState<AtQueryMatch | null>(null);
   const [atMenuOpen, setAtMenuOpen] = useState(false);
@@ -2035,6 +2045,43 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               </div>
             )}
 
+            {/* Preset mode selector */}
+            {!isStreaming && presets && presets.names && presets.names.length > 0 && onPresetChange && (
+              <div ref={presetDropdownRef} style={{ position: "relative" }}>
+                <button
+                  onClick={() => !isStreaming && setPresetDropdownOpen((v) => !v)}
+                  disabled={isStreaming}
+                  title="Select preset mode"
+                  aria-label="Select preset mode"
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                    padding: "8px 12px", height: 32,
+                    background: presetDropdownOpen ? "var(--bg-hover)" : "none",
+                    border: "none", borderRadius: 9,
+                    color: "var(--text-muted)",
+                    cursor: isStreaming ? "not-allowed" : "pointer",
+                    fontSize: 12,
+                    opacity: isStreaming ? 0.5 : 1,
+                    transition: "background 0.12s, color 0.12s",
+                  }}
+                  onMouseEnter={(e) => { if (isStreaming) return; e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = presetDropdownOpen ? "var(--bg-hover)" : "none"; e.currentTarget.style.color = "var(--text-muted)"; }}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                  {presets.labels[presets.active || presets.names[0]] || (presets.active || presets.names[0])}
+                </button>
+                {presetDropdownOpen && (
+                  <div style={{ position: "absolute", bottom: "calc(100% + 6px)", right: 0, zIndex: 100, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 -4px 16px rgba(0,0,0,0.10)", overflow: "hidden", minWidth: 120 }}>
+                    {presets.names.map(function(p) { return (
+                      <button key={p} onClick={function() { setPresetDropdownOpen(false); onPresetChange(p); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 12px", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 12, textAlign: "left", whiteSpace: "nowrap" }} onMouseEnter={function(e) { e.currentTarget.style.background = "var(--bg-hover)"; }} onMouseLeave={function(e) { e.currentTarget.style.background = "none"; }}>
+                        {presets.labels[p] || p}
+                      </button>
+                    );})}
+                  </div>
+                )}
+              </div>
+            )}
+
             {!isStreaming && onCompact && (
               <div style={{ position: "relative" }}>
                 {compactError && (
@@ -2115,7 +2162,33 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               </button>
             )}
 
-            {onSoundToggle !== undefined && (
+
+            {/* Session cost */}
+            {cost !== undefined && (() => {
+              var lbl = cost <= 0 ? "0.000" : cost < 0.001 ? "<0.001" : cost.toFixed(3);
+              return (
+                <span title={"会话费用: ¥" + cost.toFixed(4)} style={{display:"flex",alignItems:"center",gap:3,padding:"8px 12px",height:32,background:"none",border:"none",borderRadius:9,color:"var(--text-muted)",fontSize:12,fontFamily:"var(--font-mono)",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap",cursor:"default",userSelect:"none"}}>
+                  <svg width="13" height="13" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round"><path d="M24 20 L50 56 L50 85" strokeLinejoin="round"/><path d="M76 20 L50 56"/><path d="M26 44 L42 44"/><path d="M58 44 L74 44"/><path d="M32 58 L42 58"/><path d="M58 58 L68 58"/></svg>
+                  {lbl}
+                </span>
+              );
+            })()}
+
+            {/* Context usage */}
+            {contextUsage && contextUsage.contextWindow > 0 && (() => {
+              var pct = contextUsage.percent;
+              var ctxColor = pct !== null && pct > 90 ? "#ef4444" : pct !== null && pct > 70 ? "rgba(234,179,8,0.95)" : "var(--text-muted)";
+              var fmt = function(n) { return n >= 1000 ? (n/1000).toFixed(1) + "k" : String(n); };
+              var used = contextUsage.tokens !== null ? fmt(contextUsage.tokens) : "?";
+              var total = fmt(contextUsage.contextWindow);
+              var label = used + "/" + total;
+              return (
+                <span title={"上下文: " + label} style={{display:"flex",alignItems:"center",gap:3,padding:"8px 12px",height:32,background:"none",border:"none",borderRadius:9,color:ctxColor,fontSize:12,fontFamily:"var(--font-mono)",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap",cursor:"default",userSelect:"none"}}>
+                  {label}
+                </span>
+              );
+            })()}
+{onSoundToggle !== undefined && (
               <button
                 onClick={onSoundToggle}
                 title={soundEnabled ? "Disable completion sound" : "Enable completion sound"}

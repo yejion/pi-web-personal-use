@@ -12,6 +12,7 @@ interface BrowseResponse {
   path?: string;
   parentPath?: string | null;
   directories?: DirectoryEntry[];
+  drives?: DirectoryEntry[];
   error?: string;
 }
 
@@ -38,12 +39,14 @@ interface Props {
   error?: string | null;
 }
 
-export function DirectoryPicker({ onCancel, onSelect, busy = false, error }: Props) {
+export function DirectoryPicker({ onCancel, onSelect, busy = false, error, initialPath }: Props) {
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [currentPath, setCurrentPath] = useState("");
   const [parentDirectory, setParentDirectory] = useState<string | null>(null);
   const [pathInput, setPathInput] = useState("");
   const [directories, setDirectories] = useState<DirectoryEntry[]>([]);
+  const [drives, setDrives] = useState<DirectoryEntry[]>([]);
+  const [driveMenuOpen, setDriveMenuOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,6 +60,7 @@ export function DirectoryPicker({ onCancel, onSelect, busy = false, error }: Pro
       setParentDirectory(data.parentPath ?? null);
       setPathInput(nextPath);
       setDirectories(data.directories ?? []);
+      if (data.drives) setDrives(data.drives);
     } catch (cause) {
       setLoadError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -116,6 +120,22 @@ export function DirectoryPicker({ onCancel, onSelect, busy = false, error }: Pro
               <path d="m18 15-6-6-6 6" />
             </svg>
           </button>
+          {drives.length > 1 && (
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <button className="directory-picker-back" type="button" onClick={() => setDriveMenuOpen(!driveMenuOpen)} title="Select drive" aria-label="Select drive" style={{ width: 36, height: 36, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "1px solid var(--border)", borderRadius: 6, background: driveMenuOpen ? "var(--bg-selected)" : "var(--bg-hover)", color: "var(--text-muted)", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700 }}>
+                {currentPath ? currentPath.charAt(0) + ":" : "HD"}
+              </button>
+              {driveMenuOpen && (
+                <div style={{ position: "absolute", top: "100%", left: 0, zIndex: 10, marginTop: 4, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.12)", overflow: "hidden", minWidth: 60 }}>
+                  {drives.map(function(d) { return (
+                    <button key={d.path} type="button" onClick={function() { setDriveMenuOpen(false); navigateTo(d.path); }} style={{ width: "100%", padding: "6px 12px", border: 0, background: "none", color: "var(--text)", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: 11, textAlign: "left", whiteSpace: "nowrap" }}>
+                      {d.name}
+                    </button>
+                  );})}
+                </div>
+              )}
+            </div>
+          )}
           <label htmlFor="directory-path" style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0 }}>
             Directory path
           </label>

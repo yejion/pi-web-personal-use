@@ -213,7 +213,45 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onSessionCreate
     session, newSessionCwd, onAgentEnd: wrappedOnAgentEnd, onSessionCreated, onSessionForked,
     modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsPanelOpen,
   });
+  const [activeMode, setActiveMode] = useState<string>("allallow");
+  const [presets, setPresets] = useState<{names:string[];labels:Record<string,string>}>({names:["allallow","plan","auto","writeallow"],labels:{allallow:"🤖AllAllow",plan:"📋Plan",auto:"🛡️Auto",writeallow:"✏️WriteAllow"}});
   const sessionBusy = agentRunning || bashRunning;
+
+  useEffect(function() {
+    fetch("/api/modes").then(function(r){return r.json()}).then(function(d){
+      var names=Object.keys(d||{});var labels={};
+      names.forEach(function(n){labels[n]=(d[n].emoji||"")+d[n].label});
+      setPresets({names:names,labels:labels});
+    }).catch(function(){});
+  }, []);
+
+  var handlePresetChange = useCallback(function(preset: string) {
+    setActiveMode(preset);
+    // Map mode to tools and apply directly
+    var tools = preset === "allallow" ? ["bash","read","edit","write","grep","find","ls"]
+      : preset === "plan" ? ["read","grep","find","ls"]
+      : preset === "auto" ? ["read","bash","edit","write"]
+      : preset === "writeallow" ? ["read","bash","edit","write"]
+      : ["read","bash","edit","write"];
+    // Update tool preset state locally
+    if (typeof handleToolPresetChange === "function") {
+      handleToolPresetChange(preset === "allallow" ? "full" : "default");
+    }
+    var sid = sessionIdRef.current;
+    if (!sid) return;
+    // Send set_tools command to agent
+    fetch("/api/agent/" + encodeURIComponent(sid), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "set_tools", toolNames: tools }),
+    }).catch(function(){});
+    // Also send /mode command to extension for status tracking
+    fetch("/api/agent/" + encodeURIComponent(sid), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "prompt", message: "/mode " + preset, source: "rpc" }),
+    }).catch(function(){});
+  }, []);
 
   // Register the abort handler for the global Esc shortcut
   useEffect(() => {
@@ -365,6 +403,10 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onSessionCreate
       onSoundToggle={onSoundToggle}
       onAudioUnlock={unlockAudio}
       draftKey={session?.id ?? (newSessionCwd ? `new:${newSessionCwd}` : undefined)}
+      cost={sessionStats?.cost ?? 0}
+      contextUsage={contextUsage}
+      presets={{...presets,active:activeMode}}
+      onPresetChange={handlePresetChange}
       cwd={session?.cwd ?? newSessionCwd}
     />
   );

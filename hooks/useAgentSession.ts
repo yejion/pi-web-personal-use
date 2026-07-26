@@ -25,6 +25,7 @@ export interface SessionData {
     thinkingLevel: string;
     model: { provider: string; modelId: string } | null;
   };
+  cost?: number;
 }
 
 interface StreamingState {
@@ -403,7 +404,18 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     let toolCalls = 0;
     for (const msg of messages) {
       if (msg.role === "user") userMessages += 1;
-      if (msg.role === "toolResult") toolResults += 1;
+      if (msg.role === "toolResult") {
+        toolResults += 1;
+        var tr = msg;
+        if (tr.usage) {
+          tokens.input += tr.usage.input ?? 0;
+          tokens.output += tr.usage.output ?? 0;
+          tokens.cacheRead += tr.usage.cacheRead ?? 0;
+          tokens.cacheWrite += tr.usage.cacheWrite ?? 0;
+          cost += tr.usage.cost?.total ?? 0;
+        }
+        continue;
+      }
       if (msg.role !== "assistant") continue;
       assistantMessages += 1;
       const u = (msg as import("@/lib/types").AssistantMessage).usage;
@@ -427,10 +439,10 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       toolResults,
       totalMessages: messages.length,
       tokens,
-      cost,
+      cost: data?.cost ?? cost,
       ...(contextUsage ? { contextUsage } : {}),
     } satisfies SessionStatsInfo;
-  }, [messages, sessionStatsOverride, contextUsage, data?.filePath, session?.id, session?.name]);
+  }, [messages, sessionStatsOverride, contextUsage, data?.filePath, data?.cost, session?.id, session?.name]);
 
   const loadSession = useCallback(async (sid: string, showLoading = false, includeState = false) => {
     let messagesLoaded = false;
@@ -454,6 +466,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       setActiveLeafId(d.leafId);
       setMessages(d.context.messages);
       setEntryIds(d.context.entryIds ?? []);
+      fetch("/api/sessions/" + encodeURIComponent(sid) + "/context-usage")
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          if (d && d.contextWindow) setContextUsage(d);
+        })
+        .catch(function() {});
       setCurrentModelOverride(null);
       setError(null);
       if (d.context.thinkingLevel && d.context.thinkingLevel !== "off") {
@@ -908,6 +926,16 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
               setQueuedMessages(normalizeQueuedMessages(d.state?.queuedMessages));
             })
             .catch(() => {});
+          fetch("/api/agent/" + encodeURIComponent(sessionIdRef.current), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "get_session_stats" }),
+          })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              if (d.success && d.data) setSessionStatsOverride(d.data);
+            })
+            .catch(function() {});
         }
         onAgentEnd?.();
         break;
@@ -1622,6 +1650,17 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   useEffect(() => {
     setSessionStatsOverride(null);
   }, [messages.length, contextUsage?.tokens, contextUsage?.percent, contextUsage?.contextWindow]);
+
+  // Persist context usage to server for restore on next load
+  useEffect(function() {
+    if (contextUsage && contextUsage.contextWindow > 0 && sessionIdRef.current) {
+      fetch("/api/sessions/" + encodeURIComponent(sessionIdRef.current) + "/context-usage", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contextUsage),
+      }).catch(function() {});
+    }
+  }, [contextUsage]);
 
   return {
     // State

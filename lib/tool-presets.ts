@@ -8,6 +8,7 @@ export type ToolPreset = "none" | "default" | "full";
 
 export const PRESET_NONE: string[] = [];
 export const PRESET_DEFAULT: string[] = ["read", "bash", "edit", "write"];
+export const PRESET_PLAN: string[] = ["read", "grep", "find", "ls"];
 export const PRESET_FULL: string[] = ["bash", "read", "edit", "write", "grep", "find", "ls"];
 
 const BUILTIN_TOOL_NAMES = new Set(PRESET_FULL);
@@ -27,8 +28,25 @@ export function getPresetFromTools(tools: ToolEntry[]): ToolPreset {
   return "default";
 }
 
+export type PiMode = "allallow" | "plan" | "auto" | "writeallow";
+
+export const MODE_PRESET_MAP: Record<PiMode, ToolPreset> = {
+  allallow: "full",
+  plan: "full",
+  auto: "default",
+  writeallow: "default",
+};
+
+export const MODE_TOOL_MAP: Record<PiMode, string[]> = {
+  allallow: [...PRESET_FULL],
+  plan: [...PRESET_PLAN],
+  auto: [...PRESET_DEFAULT],
+  writeallow: [...PRESET_DEFAULT],
+};
+
 export function getToolNamesForPreset(preset: ToolPreset): string[] {
   if (preset === "none") return [...PRESET_NONE];
   if (preset === "full") return [...PRESET_FULL];
+  if (preset === "plan") return [...PRESET_PLAN];
   return [...PRESET_DEFAULT];
 }
