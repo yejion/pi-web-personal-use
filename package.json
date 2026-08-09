@@ -114,12 +114,10 @@
       "createDesktopShortcut": true,
       "shortcutName": "Pi Web"
     },
-    "extraMetadata": {
-      "main": "electron/main.js"
-    },
     "asar": false
   },
   "allowScripts": {
     "electron@43.3.0": true
-  }
+  },
+  "main": "electron/main.js"
 }
