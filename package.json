@@ -1,11 +1,11 @@
 {
-  "name": "@agegr/pi-web",
+  "name": "pi-web-personal",
   "version": "0.8.1",
-  "description": "Web UI for the pi coding agent",
-  "homepage": "https://github.com/agegr/pi-web#readme",
+  "description": "Personal pi-web desktop launcher — web UI for the pi coding agent",
+  "homepage": "https://github.com/yejion/pi-web-personal-use#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/agegr/pi-web.git"
+    "url": "git+https://github.com/yejion/pi-web-personal-use.git"
   },
   "bugs": {
     "url": "https://github.com/agegr/pi-web/issues"
