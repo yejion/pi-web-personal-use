@@ -31,8 +31,9 @@ jobs:
         run: |
           $base = node -p "require('./package.json').version"
           $base = ($base -split '-')[0]
-          $stamp = Get-Date -Format "yyyyMMdd.HHmm"
-          $newVersion = "$base.$stamp"
+          $stamp = Get-Date -Format "yyyyMMddHHmm"
+          # Standard semver with prerelease build number: 0.8.1-build.202608091641
+          $newVersion = "$(node -p "require('./package.json').version.split('-')[0]")-build.$stamp"
           node -e "const fs=require('fs');const p=require('./package.json');p.version='$newVersion';fs.writeFileSync('./package.json',JSON.stringify(p,null,2)+'\n')"
           echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "Build version: $newVersion"
