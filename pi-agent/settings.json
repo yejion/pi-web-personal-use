@@ -1,0 +1,12 @@
+{
+  "lastChangelogVersion": "0.83.0",
+  "theme": "dark",
+  "defaultProvider": "deepseek",
+  "defaultModel": "deepseek-v4-flash",
+  "defaultThinkingLevel": "high",
+  "treeFilterMode": "all",
+  "enableSkillCommands": true,
+  "hideThinkingBlock": true,
+  "shellPath": "D:/Program Files/Git/bin/bash.exe",
+  "packages": []
+}
