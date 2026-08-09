@@ -1,9 +1,6 @@
 name: Build and Release Pi Web Desktop
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -28,19 +25,17 @@ jobs:
         env:
           npm_config_allow_scripts: "true"
 
-      - name: Auto-bump version
+      - name: Compute unique build version
         id: version
         shell: pwsh
         run: |
-          # Determine bump level from the tag (e.g. v0.8.2-beta → patch by default)
-          $current = node -p "require('./package.json').version"
-          $base = ($current -split '-')[0]
-          $parts = $base -split '\.'
-          $patch = [int]$parts[2] + 1
-          $newVersion = "$($parts[0]).$($parts[1]).$patch"
+          $base = node -p "require('./package.json').version"
+          $base = ($base -split '-')[0]
+          $stamp = Get-Date -Format "yyyyMMdd.HHmm"
+          $newVersion = "$base.$stamp"
           node -e "const fs=require('fs');const p=require('./package.json');p.version='$newVersion';fs.writeFileSync('./package.json',JSON.stringify(p,null,2)+'\n')"
           echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
-          echo "Bumped version to $newVersion"
+          echo "Build version: $newVersion"
 
       - name: Build Next.js production bundle
         run: npm run build
@@ -53,27 +48,26 @@ jobs:
           NODE_ENV: production
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: List release artifacts
+        run: Get-ChildItem -Path release -Recurse | Select-Object Name, Length
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pi-web-desktop-windows
+          name: pi-web-desktop-windows-${{ steps.version.outputs.new_version }}
           path: |
             release/*.exe
             release/*.yml
             release/*.blockmap
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release/*.exe
-            release/*.yml
-            release/*.blockmap
-          name: Pi Web Desktop ${{ steps.version.outputs.new_version }}
-          tag_name: ${{ github.ref_name }}
-          body: |
-            Pi Web Desktop ${{ steps.version.outputs.new_version }}
-
-            - **Pi-Web-Setup-*.exe** — 安装程序（推荐，自动创建桌面快捷方式）
-            - **Pi-Web-*-portable.exe** — 便携版（免安装，双击即用）
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.new_version }}"
+          $tag = "v$ver"
+          # gh creates the tag automatically if it doesn't exist.
+          gh release create "$tag" release/*.exe release/*.yml release/*.blockmap `
+            --title "Pi Web Desktop $ver" `
+            --notes "Pi Web Desktop $ver`n`n- **Pi-Web-Setup-*.exe** — 安装程序（推荐，自动创建桌面快捷方式）`n- **Pi-Web-*-portable.exe** — 便携版（免安装，双击即用）`n`n> 每次构建版本号唯一（base + 时间戳），每个构建对应独立 Release。"
