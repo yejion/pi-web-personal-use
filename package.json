@@ -91,11 +91,6 @@
       "next.config.ts",
       "package.json"
     ],
-    "asarUnpack": [
-      "**/node_modules/sharp/**",
-      "**/node_modules/@earendil-works/**",
-      "**/node_modules/undici/**"
-    ],
     "win": {
       "target": [
         {
@@ -121,7 +116,8 @@
     },
     "extraMetadata": {
       "main": "electron/main.js"
-    }
+    },
+    "asar": false
   },
   "allowScripts": {
     "electron@43.3.0": true
