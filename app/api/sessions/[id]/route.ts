@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
+import { existsSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
-import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { SessionManager, getAgentDir } from "@earendil-works/pi-coding-agent";
 import {
   resolveSessionPath,
   resolveSessionIdByPath,
@@ -126,18 +126,47 @@ export async function GET(
 
     const sm = SessionManager.open(filePath);
     const entries = sm.getEntries() as never;
-    // Compute total cost from model pricing (RMB per 1M tokens)
-    const PRICING: Record<string, { inputMiss: number; inputHit: number; output: number }> = {
-      "deepseek-v4-flash": { inputMiss: 1.00, inputHit: 0.02, output: 2.00 },
-      "deepseek-v4-pro":   { inputMiss: 3.00, inputHit: 0.025, output: 6.00 },
-    };
+    // Compute total cost from model pricing read live from models.json,
+    // so any pi agent configuration works without hardcoded prices.
+    const MODEL_PRICING: Record<string, { inputMiss: number; inputHit: number; output: number; cacheWrite: number }> = (function() {
+      try {
+        const modelsPath = join(getAgentDir(), "models.json");
+        if (existsSync(modelsPath)) {
+          const parsed = JSON.parse(readFileSync(modelsPath, "utf8"));
+          const map: Record<string, { inputMiss: number; inputHit: number; output: number; cacheWrite: number }> = {};
+          const providers = parsed?.providers ?? {};
+          for (const provider of Object.values(providers) as any[]) {
+            for (const model of provider?.models ?? []) {
+              const cost = model?.cost;
+              if (cost && typeof cost.input === "number") {
+                map[String(model.id).toLowerCase()] = {
+                  inputMiss: cost.input,
+                  inputHit: typeof cost.cacheRead === "number" ? cost.cacheRead : cost.input,
+                  output: typeof cost.output === "number" ? cost.output : 0,
+                  cacheWrite: typeof cost.cacheWrite === "number" ? cost.cacheWrite : 0,
+                };
+              }
+            }
+            for (const [id, ov] of Object.entries(provider?.modelOverrides ?? {}) as any) {
+              const cost = ov?.cost;
+              if (cost && typeof cost.input === "number") {
+                map[String(id).toLowerCase()] = {
+                  inputMiss: cost.input,
+                  inputHit: typeof cost.cacheRead === "number" ? cost.cacheRead : cost.input,
+                  output: typeof cost.output === "number" ? cost.output : 0,
+                  cacheWrite: typeof cost.cacheWrite === "number" ? cost.cacheWrite : 0,
+                };
+              }
+            }
+          }
+          return map;
+        }
+      } catch { /* fall through */ }
+      return {};
+    })();
     function getPrice(modelId: string | null | undefined) {
       if (!modelId) return null;
-      const lower = modelId.toLowerCase();
-      for (const [key, price] of Object.entries(PRICING)) {
-        if (lower.includes(key)) return price;
-      }
-      return null;
+      return MODEL_PRICING[modelId.toLowerCase()] ?? null;
     }
     let totalCost = 0;
     let lastModel: string | null = null;
@@ -153,7 +182,11 @@ export async function GET(
         const inMiss = usage.input ?? 0;
         const inHit = usage.cacheRead ?? 0;
         const out = usage.output ?? 0;
-        totalCost += (inMiss * price.inputMiss + inHit * price.inputHit + out * price.output + (usage.cacheWrite ?? 0) * 0) / 1000000;
+        const cw = usage.cacheWrite ?? 0;
+        totalCost += (inMiss * price.inputMiss + inHit * price.inputHit + out * price.output + cw * price.cacheWrite) / 1000000;
+      } else if (usage.cost?.total) {
+        // Fallback: use pi SDK computed cost when no pricing in models.json
+        totalCost += usage.cost.total;
       }
     }
     const leafId = sm.getLeafId();
