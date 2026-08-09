@@ -2,10 +2,9 @@
 
 // Pi Web Desktop — Electron wrapper.
 // Bundles the pi-web Next.js server and a browser window into a single
-// distributable desktop app. Double-click the exe → pi agent starts →
-// the pi-web interface opens in its own window.
+// distributable desktop app.
 
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, dialog } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
@@ -19,17 +18,34 @@ let mainWindow = null;
 let quitting = false;
 
 function resolvePkgDir() {
-  // In dev: project root. In packaged asar: app.asar.
+  // Dev: project root. Packaged (asar:false): resources/app.
   return __dirname.replace(/[\\/]electron$/, "");
 }
 
-function waitForServer(url, timeoutMs, onReady, onFail) {
+// Log server output to a file so failures can be diagnosed.
+function logFile() {
+  try {
+    const dir = path.join(app.getPath("userData"), "logs");
+    fs.mkdirSync(dir, { recursive: true });
+    return path.join(dir, "pi-web-server.log");
+  } catch {
+    return path.join(process.env.TEMP || "/tmp", "pi-web-server.log");
+  }
+}
+const LOG = logFile();
+
+function appendLog(text) {
+  try {
+    fs.appendFileSync(LOG, text);
+  } catch { /* ignore */ }
+}
+
+function waitForServer(timeoutMs, onReady, onFail) {
   const started = Date.now();
+  const net = require("net");
   const check = () => {
     if (quitting) return;
-    const net = require("net");
-    const [host, port] = [HOST, PORT];
-    const socket = net.connect(port, host);
+    const socket = net.connect(PORT, HOST);
     socket.on("connect", () => {
       socket.destroy();
       onReady();
@@ -37,9 +53,9 @@ function waitForServer(url, timeoutMs, onReady, onFail) {
     socket.on("error", () => {
       socket.destroy();
       if (Date.now() - started > timeoutMs) {
-        onFail(new Error(`Timed out waiting for ${url}`));
+        onFail(new Error(`Timed out waiting for ${URL}`));
       } else {
-        setTimeout(check, 250);
+        setTimeout(check, 300);
       }
     });
   };
@@ -50,12 +66,15 @@ function startPiWebServer() {
   const pkgDir = resolvePkgDir();
   const nextDir = path.join(pkgDir, ".next");
 
+  appendLog(`\n[${new Date().toISOString()}] starting pi-web server\n`);
+  appendLog(`  pkgDir: ${pkgDir}\n`);
+  appendLog(`  nextDir exists: ${fs.existsSync(nextDir)}\n`);
+
   if (!fs.existsSync(nextDir)) {
-    console.error("Build artifacts not found:", nextDir);
+    appendLog("  FATAL: build artifacts not found\n");
     return null;
   }
 
-  // Resolve next's CLI entry.
   let nextBin;
   try {
     nextBin = require.resolve("next/dist/bin/next", { paths: [pkgDir] });
@@ -67,14 +86,13 @@ function startPiWebServer() {
       nextBin = path.join(pkgDir, "node_modules", "next", "dist", "bin", "next");
     }
   }
+  appendLog(`  nextBin: ${nextBin}\n`);
 
   const args = ["start", "-p", String(PORT), "-H", HOST];
 
-  // ELECTRON_RUN_AS_NODE makes the Electron executable act as plain Node so it
-  // can run Next.js server code directly — no separate Node install needed.
   const child = spawn(process.execPath, [nextBin, ...args], {
     cwd: pkgDir,
-    stdio: "inherit",
+    stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1",
@@ -82,12 +100,19 @@ function startPiWebServer() {
     windowsHide: false,
   });
 
+  child.stdout.on("data", (d) => appendLog(d.toString()));
+  child.stderr.on("data", (d) => appendLog(d.toString()));
+
   child.on("error", (err) => {
-    console.error("Failed to start pi-web server:", err);
+    appendLog(`  spawn error: ${err.message}\n`);
   });
   child.on("exit", (code, signal) => {
+    appendLog(`  server exited code=${code} signal=${signal}\n`);
     if (!quitting) {
-      console.error(`pi-web server exited (code=${code}, signal=${signal})`);
+      dialog.showErrorBox(
+        "Pi Web 已退出",
+        `内置服务器已退出（code=${code}）。\n\n日志: ${LOG}`,
+      );
     }
   });
 
@@ -103,18 +128,10 @@ function createWindow() {
     title: "Pi Web",
     autoHideMenuBar: true,
     backgroundColor: "#1a1a1a",
-    webPreferences: {
-      // Keep sandbox default; the window only talks to the local server.
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
   });
 
-  // Open external links (non-local) in the system browser.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(URL)) {
-      return { action: "allow" };
-    }
+    if (url.startsWith(URL)) return { action: "allow" };
     shell.openExternal(url);
     return { action: "deny" };
   });
@@ -122,7 +139,6 @@ function createWindow() {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
-
   return mainWindow;
 }
 
@@ -130,26 +146,24 @@ app.whenReady().then(() => {
   serverProcess = startPiWebServer();
 
   waitForServer(
-    URL,
-    30000,
+    40000,
     () => {
       if (quitting) return;
       const win = createWindow();
       win.loadURL(URL);
     },
     (err) => {
-      console.error(err);
-      if (!quitting) {
-        const win = createWindow();
-        win.loadFile(path.join(__dirname, "start-error.html"), {
-          query: { message: encodeURIComponent(err.message) },
-        });
-      }
+      appendLog(`  FATAL: ${err.message}\n`);
+      dialog.showErrorBox(
+        "Pi Web 启动失败",
+        `${err.message}\n\n请查看日志: ${LOG}`,
+      );
+      app.quit();
     },
   );
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (BrowserWindow.getAllWindows().length === 0 && serverProcess) {
       const win = createWindow();
       win.loadURL(URL);
     }
