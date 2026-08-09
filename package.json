@@ -25,8 +25,7 @@
     "!.next/**/*.js.map",
     "public",
     "next.config.ts",
-    "package.json",
-    "pi-agent"
+    "package.json"
   ],
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 30141",
