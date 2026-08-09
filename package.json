@@ -35,7 +35,10 @@
     "start:lan": "next start -H 0.0.0.0 -p 30141",
     "lint": "eslint .",
     "release": "npm version patch --no-git-tag-version && npm run build && npm publish --access public",
-    "postinstall": "node bin/postinstall.js"
+    "postinstall": "node bin/postinstall.js",
+    "desktop": "electron electron/main.js",
+    "desktop:build": "next build && electron-builder --win",
+    "desktop:pack": "electron-builder --win --dir"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.82.1",
@@ -54,6 +57,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "jiti": "^2.7.0",
@@ -70,5 +75,55 @@
     "remark-math": "^6.0.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^5"
+  },
+  "build": {
+    "appId": "com.yejion.piweb",
+    "productName": "Pi Web Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "bin/**/*",
+      ".next/**/*",
+      "!**/node_modules/.cache",
+      "public/**/*",
+      "next.config.ts",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/sharp/**",
+      "**/node_modules/@earendil-works/**",
+      "**/node_modules/undici/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Pi-Web-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Pi Web"
+    },
+    "extraMetadata": {
+      "main": "electron/main.js"
+    }
+  },
+  "allowScripts": {
+    "electron@43.3.0": true
   }
 }
