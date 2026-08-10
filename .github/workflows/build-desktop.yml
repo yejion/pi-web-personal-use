@@ -42,7 +42,7 @@ jobs:
           NODE_ENV: production
 
       - name: Build Electron installer
-        run: npx electron-builder --win --x64
+        run: npx electron-builder --win --x64 --publish never
         env:
           NODE_ENV: production
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
