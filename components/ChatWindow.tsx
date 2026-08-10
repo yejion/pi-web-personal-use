@@ -214,7 +214,7 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onSessionCreate
     modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsPanelOpen,
   });
   const [activeMode, setActiveMode] = useState<string>("allallow");
-  const [presets, setPresets] = useState<{names:string[];labels:Record<string,string>}>({names:["allallow","plan","auto","writeallow"],labels:{allallow:"🤖AllAllow",plan:"📋Plan",auto:"🛡️Auto",writeallow:"✏️WriteAllow"}});
+  const [presets, setPresets] = useState<{names:string[];labels:Record<string,string>}>({names:["allallow","plan","auto","writeallow"],labels:{allallow:"Auto mode",plan:"Plan mode",auto:"Manual mode",writeallow:"Accept edits mode"}});
   const sessionBusy = agentRunning || bashRunning;
 
   useEffect(function() {
