@@ -62,6 +62,15 @@ function waitForServer(timeoutMs, onReady, onFail) {
   check();
 }
 
+function isPortInUse() {
+  return new Promise((resolve) => {
+    const net = require("net");
+    const socket = net.connect(PORT, HOST);
+    socket.on("connect", () => { socket.destroy(); resolve(true); });
+    socket.on("error", () => { socket.destroy(); resolve(false); });
+  });
+}
+
 function startPiWebServer() {
   const pkgDir = resolvePkgDir();
   const nextDir = path.join(pkgDir, ".next");
@@ -142,7 +151,14 @@ function createWindow() {
   return mainWindow;
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const inUse = await isPortInUse();
+  if (inUse) {
+    appendLog("port already in use, reusing existing server
+");
+    createWindow().loadURL(URL);
+    return;
+  }
   serverProcess = startPiWebServer();
 
   waitForServer(
