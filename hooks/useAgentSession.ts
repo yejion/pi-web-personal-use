@@ -150,7 +150,7 @@ export interface UseAgentSessionOptions {
   onBranchDataChange?: (tree: SessionTreeNode[], activeLeafId: string | null, onLeafChange: (leafId: string | null) => void) => void;
   onSystemPromptChange?: (prompt: string | null) => void;
   onSessionStatsPanelOpen?: () => void;
-  setToolPreset?: (preset: "none" | "default" | "full") => void;
+  setToolPreset?: (preset: import("@/lib/tool-presets").ToolPreset) => void;
 }
 
 export type ThinkingLevelOption = "auto" | "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
@@ -389,7 +389,14 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const promptRunIdRef = useRef(0);
   const optimisticUserMessageKeyRef = useRef<string | null>(null);
 
-  const setToolPresetState: (p: import("@/lib/tool-presets").ToolPreset) => void = (opts.setToolPreset ?? setToolPreset) as any;
+  const setToolPresetState: (p: import("@/lib/tool-presets").ToolPreset) => void = opts.setToolPreset ?? setToolPreset;
+
+  // Active permission-mode policy (config/modes.json), pushed by ChatWindow.
+  // New sessions apply these tools/askTools at creation instead of the bare preset.
+  const modePolicyRef = useRef<{ toolNames: string[]; askTools: string[] } | null>(null);
+  const setModePolicy = useCallback((policy: { toolNames: string[]; askTools: string[] } | null) => {
+    modePolicyRef.current = policy;
+  }, []);
 
   const currentModel = currentModelOverride ?? data?.context.model ?? pendingModel ?? null;
   const displayModel = isNew ? (newSessionModel ?? newSessionDefaultModel) : currentModel;
@@ -406,7 +413,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       if (msg.role === "user") userMessages += 1;
       if (msg.role === "toolResult") {
         toolResults += 1;
-        var tr = msg as any;
+        const tr = msg as { usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } } };
         if (tr.usage) {
           tokens.input += tr.usage.input ?? 0;
           tokens.output += tr.usage.output ?? 0;
@@ -532,7 +539,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const tools = await sendAgentCommand<ToolEntry[]>(sid, { type: "get_tools" });
       if (tools) {
         const { getPresetFromTools } = await import("@/lib/tool-presets");
-        setToolPresetState(getPresetFromTools(tools) as any);
+        setToolPresetState(getPresetFromTools(tools));
       }
     } catch (e) {
       console.error("Failed to load tools:", e);
@@ -563,7 +570,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     const promise = (async () => {
       const selectedModel = newSessionModel ?? newSessionDefaultModel;
       if (selectedModel) setPendingModel(selectedModel);
-      const toolNames = getToolNamesForPreset(toolPreset);
+      const modePolicy = modePolicyRef.current;
+      const toolNames = modePolicy ? modePolicy.toolNames : getToolNamesForPreset(toolPreset);
       const res = await fetch("/api/agent/new", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -571,6 +579,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           cwd: newSessionCwd,
           type: "ensure_session",
           toolNames,
+          ...(modePolicy && modePolicy.askTools.length > 0 ? { askTools: modePolicy.askTools } : {}),
           ...(selectedModel ? { provider: selectedModel.provider, modelId: selectedModel.modelId } : {}),
           ...(thinkingLevel !== "auto" ? { thinkingLevel } : {}),
         }),
@@ -1682,6 +1691,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     handleRecallQueue,
     handleBuiltinSlashCommand,
     handleToolPresetChange, handleThinkingLevelChange, loadTools, loadSlashCommands, setActiveLeafId, setData, setMessages,
+    setModePolicy, setToolPresetState,
     dispatch, setAgentRunning, setForkingEntryId,
     bashRunning, pendingBash,
     // Subscriptions

@@ -21,13 +21,19 @@ export async function POST(req: Request) {
     }
 
     // Use a one-time key so startRpcSession's lock doesn't conflict with real session ids
-    const { provider, modelId, toolNames, thinkingLevel, ...promptCommand } = command as { provider?: string; modelId?: string; toolNames?: string[]; thinkingLevel?: string; [key: string]: unknown };
+    const { provider, modelId, toolNames, askTools, thinkingLevel, ...promptCommand } = command as { provider?: string; modelId?: string; toolNames?: string[]; askTools?: string[]; thinkingLevel?: string; [key: string]: unknown };
 
     // Must be unique per request: startRpcSession coalesces concurrent callers
     // that share a key onto one session. Date.now() (ms resolution) collides for
     // requests in the same millisecond, merging two new sessions into one.
     const tempKey = `__new__${randomUUID()}`;
     const { session, realSessionId } = await startRpcSession(tempKey, "", cwd, toolNames);
+
+    // Apply the permission-mode ask policy (config/modes.json) at creation time,
+    // so a mode selected before the first message still enforces confirmations.
+    if (Array.isArray(toolNames) && toolNames.length > 0 && Array.isArray(askTools) && askTools.length > 0) {
+      session.applyModeAskPolicy(askTools, toolNames);
+    }
 
     // Keep the files-route allowed-roots cache (see app/api/files/[...path]/route.ts)
     // in sync so the new cwd is immediately readable via /api/files. Without this,

@@ -16,6 +16,19 @@ import { getRpcSession } from "@/lib/rpc-manager";
 // BranchNavigator still traverses recursively, so keep the response tree shallow.
 const MAX_PROJECTED_TREE_DEPTH = 200;
 
+// Structural types for cost aggregation (models.json pricing + session entries).
+type ModelCost = { input?: number; output?: number; cacheRead?: number; cacheWrite?: number };
+type ProviderPricingEntry = {
+  models?: { id?: string; cost?: ModelCost }[];
+  modelOverrides?: Record<string, { cost?: ModelCost } | undefined>;
+};
+type UsageLite = { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
+type SessionEntryLite = {
+  type?: string;
+  message?: { role?: string; responseModel?: string; model?: string; usage?: UsageLite };
+  usage?: UsageLite;
+};
+
 /**
  * Project the session tree into the shallow navigation tree sent to the client.
  * Keeps roots, branch points, and leaves while contracting single-child chains
@@ -134,8 +147,8 @@ export async function GET(
         if (existsSync(modelsPath)) {
           const parsed = JSON.parse(readFileSync(modelsPath, "utf8"));
           const map: Record<string, { inputMiss: number; inputHit: number; output: number; cacheWrite: number }> = {};
-          const providers = parsed?.providers ?? {};
-          for (const provider of Object.values(providers) as any[]) {
+          const providers = (parsed?.providers ?? {}) as Record<string, ProviderPricingEntry | undefined>;
+          for (const provider of Object.values(providers)) {
             for (const model of provider?.models ?? []) {
               const cost = model?.cost;
               if (cost && typeof cost.input === "number") {
@@ -147,7 +160,7 @@ export async function GET(
                 };
               }
             }
-            for (const [id, ov] of Object.entries(provider?.modelOverrides ?? {}) as any) {
+            for (const [id, ov] of Object.entries(provider?.modelOverrides ?? {})) {
               const cost = ov?.cost;
               if (cost && typeof cost.input === "number") {
                 map[String(id).toLowerCase()] = {
@@ -170,7 +183,7 @@ export async function GET(
     }
     let totalCost = 0;
     let lastModel: string | null = null;
-    for (const entry of entries as any[]) {
+    for (const entry of entries as SessionEntryLite[]) {
       // Track model from assistant messages
       if (entry.type === "message" && entry.message?.role === "assistant") {
         lastModel = entry.message.responseModel || entry.message.model || lastModel;

@@ -45,8 +45,6 @@ interface Props {
   isCompacting?: boolean;
   compactError?: string | null;
   compactResult?: CompactResultInfo | null;
-  toolPreset?: import("@/lib/tool-presets").ToolPreset;
-  onToolPresetChange?: (preset: import("@/lib/tool-presets").ToolPreset) => void;
   thinkingLevel?: "auto" | "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
   onThinkingLevelChange?: (level: "auto" | "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max") => void;
   availableThinkingLevels?: string[] | null;
@@ -79,8 +77,6 @@ export interface ChatInputHandle {
   addImages: (files: File[]) => void;
 }
 
-const TOOL_PRESETS = ["off", "default", "full"] as const;
-const TOOL_PRESET_MAP: Record<"off" | "default" | "full", import("@/lib/tool-presets").ToolPreset> = { off: "none", default: "default", full: "full" };
 const COMPOSITION_END_ENTER_GRACE_MS = 100;
 const MODEL_OPTION_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
@@ -253,7 +249,7 @@ export function ModelErrorBanner({ error }: { error?: string | null }) {
 
 export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, modelNames, modelList, modelError, onModelChange,
-  onCompact, onAbortCompaction, isCompacting, compactError, compactResult, toolPreset, onToolPresetChange,
+  onCompact, onAbortCompaction, isCompacting, compactError, compactResult,
   thinkingLevel, onThinkingLevelChange, availableThinkingLevels, thinkingLevelMap,
   retryInfo, queuedMessages, inputHistory = [], onRecallQueue,
   slashCommands, slashCommandsLoading, onLoadSlashCommands,
@@ -271,7 +267,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const [value, setValue] = useState(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [modelDropdownRect, setModelDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
-  const [toolDropdownOpen, setToolDropdownOpen] = useState(false);
+  const [, setToolDropdownOpen] = useState(false);
   const [thinkingDropdownOpen, setThinkingDropdownOpen] = useState(false);
   const [controlsMenuOpen, setControlsMenuOpen] = useState(false);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>(() => (
@@ -995,7 +991,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (lvl === "auto" || !thinkingLevelMap) return lvl;
     return thinkingLevelMap[lvl] ?? lvl;
   })();
-  const toolPresetLabel = Object.entries(TOOL_PRESET_MAP).find(([, v]) => v === (toolPreset ?? "default"))?.[0] ?? "default";
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -2090,7 +2085,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
             {/* Session cost */}
             {cost !== undefined && (() => {
-              var lbl = cost <= 0 ? "0.000" : cost < 0.001 ? "<0.001" : cost.toFixed(3);
+              const lbl = cost <= 0 ? "0.000" : cost < 0.001 ? "<0.001" : cost.toFixed(3);
               return (
                 <span title={"会话费用: ¥" + cost.toFixed(4)} style={{display:"flex",alignItems:"center",gap:3,padding:"8px 12px",height:32,background:"none",border:"none",borderRadius:9,color:"var(--text-muted)",fontSize:12,fontFamily:"var(--font-mono)",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap",cursor:"default",userSelect:"none"}}>
                   <svg width="13" height="13" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round"><path d="M24 20 L50 56 L50 85" strokeLinejoin="round"/><path d="M76 20 L50 56"/><path d="M26 44 L42 44"/><path d="M58 44 L74 44"/><path d="M32 58 L42 58"/><path d="M58 58 L68 58"/></svg>
@@ -2101,12 +2096,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
             {/* Context usage */}
             {contextUsage && contextUsage.contextWindow > 0 && (() => {
-              var pct = contextUsage.percent;
-              var ctxColor = pct !== null && pct > 90 ? "#ef4444" : pct !== null && pct > 70 ? "rgba(234,179,8,0.95)" : "var(--text-muted)";
-              var fmt = function(n: number) { return n >= 1000 ? (n/1000).toFixed(1) + "k" : String(n); };
-              var used = contextUsage.tokens !== null ? fmt(contextUsage.tokens) : "?";
-              var total = fmt(contextUsage.contextWindow);
-              var label = used + "/" + total;
+              const pct = contextUsage.percent;
+              const ctxColor = pct !== null && pct > 90 ? "#ef4444" : pct !== null && pct > 70 ? "rgba(234,179,8,0.95)" : "var(--text-muted)";
+              const fmt = function(n: number) { return n >= 1000 ? (n/1000).toFixed(1) + "k" : String(n); };
+              const used = contextUsage.tokens !== null ? fmt(contextUsage.tokens) : "?";
+              const total = fmt(contextUsage.contextWindow);
+              const label = used + "/" + total;
               return (
                 <span title={"上下文: " + label} style={{display:"flex",alignItems:"center",gap:3,padding:"8px 12px",height:32,background:"none",border:"none",borderRadius:9,color:ctxColor,fontSize:12,fontFamily:"var(--font-mono)",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap",cursor:"default",userSelect:"none"}}>
                   {label}

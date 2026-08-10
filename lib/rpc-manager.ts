@@ -118,6 +118,7 @@ export class AgentSessionWrapper {
   private extensionBindingPromise: Promise<void> | null = null;
   private extensionBindingError: unknown = null;
   private forceEmptySystemPrompt = false;
+  private modeAskTools: string[] = [];
   private unsubscribe: (() => void) | null = null;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private onDestroyCallback: (() => void) | null = null;
@@ -252,6 +253,36 @@ export class AgentSessionWrapper {
     if (this.forceEmptySystemPrompt && this.inner.agent.state) {
       this.inner.agent.state.systemPrompt = "";
     }
+  }
+
+  /**
+   * pi SDK 只有工具 allow-list，没有 Claude Code 的“自动/需确认”粒度。
+   * ask 列表中的工具仍会被注入 set_tools（否则无法调用），但通过 system prompt
+   * 注入约束，要求模型在调用前先向用户说明意图并等待明确批准。
+   * Public: /api/agent/new applies the mode policy right after session creation.
+   */
+  applyModeAskPolicy(askTools: string[], toolNames: string[]): void {
+    this.modeAskTools = askTools;
+    if (toolNames.length === 0) return;
+    const ask = askTools.filter((t) => toolNames.includes(t));
+    const state = this.inner.agent.state;
+    if (!state) return;
+    const base = state.systemPrompt ?? "";
+    // Always strip any previously injected policy first, so switching modes
+    // (e.g. manual -> acceptEdits shrinks the ask list) actually takes effect.
+    const marker = "[pi-web permission policy]";
+    const idx = base.indexOf(marker);
+    const stripped = (idx !== -1 ? base.slice(0, idx) : base).trimEnd();
+    if (ask.length === 0) {
+      state.systemPrompt = stripped;
+      return;
+    }
+    state.systemPrompt =
+      stripped +
+      "\n\n[pi-web permission policy]\n" +
+      "The following tools require explicit user approval before each call: " +
+      ask.join(", ") +
+      ".\nBefore invoking any of them, state what you are about to do in plain text and wait for the user's explicit approval. Never invoke these tools without approval.";
   }
 
   private emit(event: AgentEvent): void {
@@ -541,9 +572,11 @@ export class AgentSessionWrapper {
 
       case "set_tools": {
         const toolNames = command.toolNames as string[];
+        const askTools = (command.askTools as string[] | undefined) ?? [];
         this.setForceEmptySystemPrompt(toolNames.length === 0);
         this.inner.setActiveToolsByName(withExtensionTools(this.inner, toolNames));
         this.applyForcedEmptySystemPrompt();
+        this.applyModeAskPolicy(askTools, toolNames);
         return null;
       }
 

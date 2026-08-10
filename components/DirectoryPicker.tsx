@@ -37,10 +37,9 @@ interface Props {
   onSelect: (path: string) => void;
   busy?: boolean;
   error?: string | null;
-  initialPath?: string | null;
 }
 
-export function DirectoryPicker({ onCancel, onSelect, busy = false, error, initialPath }: Props) {
+export function DirectoryPicker({ onCancel, onSelect, busy = false, error }: Props) {
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [currentPath, setCurrentPath] = useState("");
   const [parentDirectory, setParentDirectory] = useState<string | null>(null);

@@ -168,6 +168,14 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, children }: { messag
   );
 }
 
+// --- Mode persistence (localStorage) ---
+function readStoredMode(key: string): string | null {
+  try { return typeof window !== "undefined" ? window.localStorage.getItem(key) : null; } catch { return null; }
+}
+function writeStoredMode(key: string, value: string): void {
+  try { if (typeof window !== "undefined") window.localStorage.setItem(key, value); } catch {}
+}
+
 export function ChatWindow({ session, newSessionCwd, onAgentEnd, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSessionStatsPanelOpen, onContextUsageChange, onOpenFile }: Props) {
   const { soundEnabled, onSoundToggle, playDoneSound, unlockAudio } = useAudio();
   const isMobile = useIsMobile();
@@ -194,7 +202,7 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onSessionCreate
 
   const {
     loading, error, messages, entryIds, streamState,
-    agentRunning, bashRunning, pendingBash, modelNames, modelList, modelError, modelThinkingLevels, modelThinkingLevelMaps, toolPreset, thinkingLevel,
+    agentRunning, bashRunning, pendingBash, modelNames, modelList, modelError, modelThinkingLevels, modelThinkingLevelMaps, thinkingLevel,
     retryInfo, contextUsage, forkingEntryId,
     isCompacting, compactError, compactResult, displayModel: displayModelValue, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages,
@@ -208,50 +216,96 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onSessionCreate
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     handleRecallQueue,
     handleBuiltinSlashCommand,
-    handleToolPresetChange, handleThinkingLevelChange, loadSlashCommands,
+    handleThinkingLevelChange, loadSlashCommands,
+    setModePolicy, setToolPresetState,
   } = useAgentSession({
     session, newSessionCwd, onAgentEnd: wrappedOnAgentEnd, onSessionCreated, onSessionForked,
     modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsPanelOpen,
   });
-  const [activeMode, setActiveMode] = useState<string>("allallow");
-  const [presets, setPresets] = useState<{names:string[];labels:Record<string,string>}>({names:["allallow","plan","auto","writeallow"],labels:{allallow:"Auto mode",plan:"Plan mode",auto:"Manual mode",writeallow:"Accept edits mode"}});
+  const [activeMode, setActiveMode] = useState<string>(() => readStoredMode("pi-mode-default") || "auto");
+  const [presets, setPresets] = useState<{names:string[];labels:Record<string,string>;tools:Record<string,string[]>;asks:Record<string,string[]>}>({
+    names:["manual","acceptEdits","plan","auto"],
+    labels:{manual:"Manual mode",acceptEdits:"Accept edits mode",plan:"Plan mode",auto:"Auto mode"},
+    tools:{
+      manual:["read","grep","find","ls","edit","write","bash"],
+      acceptEdits:["read","grep","find","ls","edit","write","bash"],
+      plan:["read","grep","find","ls"],
+      auto:["read","grep","find","ls","edit","write","bash"]
+    },
+    asks:{manual:["edit","write","bash"],acceptEdits:["bash"],plan:[],auto:[]}
+  });
+  const presetToolsRef = useRef(presets.tools);
+  const presetAsksRef = useRef(presets.asks);
+  useEffect(function(){presetToolsRef.current = presets.tools; presetAsksRef.current = presets.asks;},[presets]);
   const sessionBusy = agentRunning || bashRunning;
 
   useEffect(function() {
-    fetch("/api/modes").then(function(r){return r.json()}).then(function(d: any){
-      var names=Object.keys(d||{});var labels: Record<string,string> = {};
-      names.forEach(function(n){labels[n]=(d[n].emoji||"")+d[n].label});
-      setPresets({names:names,labels:labels});
+    fetch("/api/modes").then(function(r){return r.json()}).then(function(d: { defaultMode?: string; modes?: Record<string,{label?:string;emoji?:string;tools?:string[];ask?:string[]}> }){
+      const data = (d && d.modes) || {};
+      const names=Object.keys(data);const labels: Record<string,string> = {};
+      const tools: Record<string,string[]> = {}; const asks: Record<string,string[]> = {};
+      names.forEach(function(n){
+        const m = data[n];
+        labels[n]=(m.emoji||"")+m.label;
+        tools[n]=m.tools||[];
+        asks[n]=m.ask||[];
+      });
+      if (names.length > 0) setPresets({names:names,labels:labels,tools:tools,asks:asks});
+      // config/modes.json defaultMode is the fallback when no stored preference exists
+      if (d && d.defaultMode && names.indexOf(d.defaultMode) !== -1 && !readStoredMode("pi-mode-default")) {
+        setActiveMode(d.defaultMode);
+      }
     }).catch(function(){});
   }, []);
 
-  var handlePresetChange = useCallback(function(preset: string) {
+  // Push the active mode's tools/ask policy into the session hook so brand-new
+  // sessions are created with the correct tool set and ask policy applied.
+  useEffect(function() {
+    if (typeof setModePolicy !== "function") return;
+    const tools = presets.tools[activeMode];
+    if (!tools || tools.length === 0) return;
+    setModePolicy({ toolNames: tools, askTools: presets.asks[activeMode] || [] });
+  }, [activeMode, presets, setModePolicy]);
+
+  const handlePresetChange = useCallback(function(preset: string) {
     setActiveMode(preset);
-    // Map mode to tools and apply directly
-    var tools = preset === "allallow" ? ["bash","read","edit","write","grep","find","ls"]
-      : preset === "plan" ? ["read","grep","find","ls"]
-      : preset === "auto" ? ["read","bash","edit","write"]
-      : preset === "writeallow" ? ["read","bash","edit","write"]
-      : ["read","bash","edit","write"];
-    // Update tool preset state locally
-    if (typeof handleToolPresetChange === "function") {
-      handleToolPresetChange(preset === "allallow" ? "full" : "default");
+    // Persist mode: remember per-session and as global default
+    writeStoredMode("pi-mode-default", preset);
+    const curSid = sessionIdRef.current;
+    if (curSid) writeStoredMode("pi-mode-" + curSid, preset);
+    // Read tool list + ask list from the loaded mode config (config/modes.json)
+    const tools = (presetToolsRef.current && presetToolsRef.current[preset]) || ["read","grep","find","ls","edit","write","bash"];
+    const asks = (presetAsksRef.current && presetAsksRef.current[preset]) || [];
+    // Update the tool-preset indicator locally only — do NOT call
+    // handleToolPresetChange here: it sends its own set_tools without askTools,
+    // which races with the request below and can wipe the ask policy (or even
+    // enable write tools in plan mode).
+    if (typeof setToolPresetState === "function") {
+      setToolPresetState(tools.length >= 6 ? "full" : "plan");
     }
-    var sid = sessionIdRef.current;
+    const sid = sessionIdRef.current;
     if (!sid) return;
-    // Send set_tools command to agent
+    // Send set_tools command to agent (deny tools are simply not included)
     fetch("/api/agent/" + encodeURIComponent(sid), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "set_tools", toolNames: tools }),
+      body: JSON.stringify({ type: "set_tools", toolNames: tools, askTools: asks }),
     }).catch(function(){});
-    // Also send /mode command to extension for status tracking
-    fetch("/api/agent/" + encodeURIComponent(sid), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "prompt", message: "/mode " + preset, source: "rpc" }),
-    }).catch(function(){});
+    // Refs hold the latest mode tables; sessionIdRef/setToolPresetState are stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Restore the last used mode when a session becomes available (mount or new session created)
+  const restoredSidRef = useRef<string | null>(null);
+  useEffect(function() {
+    const sid = sessionIdRef.current ?? session?.id ?? "";
+    if (!sid || restoredSidRef.current === sid) return;
+    restoredSidRef.current = sid;
+    const stored = readStoredMode("pi-mode-" + sid);
+    const target = stored && presets.names.indexOf(stored) !== -1 ? stored : activeMode;
+    handlePresetChange(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id, isNew]);
 
   // Register the abort handler for the global Esc shortcut
   useEffect(() => {
@@ -385,8 +439,6 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onSessionCreate
       isCompacting={isCompacting}
       compactError={compactError}
       compactResult={compactResult}
-      toolPreset={toolPreset}
-      onToolPresetChange={session || isNew ? handleToolPresetChange : undefined}
       thinkingLevel={thinkingLevel}
       onThinkingLevelChange={session || isNew ? handleThinkingLevelChange : undefined}
       availableThinkingLevels={availableThinkingLevels}

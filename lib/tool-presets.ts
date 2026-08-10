@@ -28,20 +28,21 @@ export function getPresetFromTools(tools: ToolEntry[]): ToolPreset {
   return "default";
 }
 
-export type PiMode = "allallow" | "plan" | "auto" | "writeallow";
+export type PiMode = "manual" | "acceptEdits" | "plan" | "auto";
 
 export const MODE_PRESET_MAP: Record<PiMode, ToolPreset> = {
-  allallow: "full",
-  plan: "full",
-  auto: "default",
-  writeallow: "default",
+  manual: "default",
+  acceptEdits: "default",
+  plan: "default",
+  auto: "full",
 };
 
 export const MODE_TOOL_MAP: Record<PiMode, string[]> = {
-  allallow: [...PRESET_FULL],
+  // set_tools 列表 = auto + ask（deny 排除）；pi 无原生确认粒度，ask 靠 system prompt 约束
+  manual: [...PRESET_DEFAULT, "grep", "find", "ls"],
+  acceptEdits: [...PRESET_DEFAULT, "grep", "find", "ls"],
   plan: [...PRESET_PLAN],
-  auto: [...PRESET_DEFAULT],
-  writeallow: [...PRESET_DEFAULT],
+  auto: [...PRESET_FULL],
 };
 
 export function getToolNamesForPreset(preset: ToolPreset): string[] {
