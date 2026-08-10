@@ -1,177 +1,94 @@
-# Release Checklist
+# 发布流程（桌面版）
 
-This repo publishes two artifacts for each release:
+本 fork 只发布一种产物：**Windows 桌面应用**，通过 GitHub Release 分发。不发 npm 包（`package.json` 里的 `release` 脚本是从上游继承的，不适用于本仓库）。
 
-- npm package: `@agegr/pi-web`
-- GitHub Release: `agegr/pi-web`
+每次发布产出：
 
-Use this checklist from a clean `main` checkout.
+- `Pi-Web-Setup-<version>.exe` —— NSIS 安装程序（推荐，自动创建桌面快捷方式）
+- `Pi-Web-Setup-<version>-portable.exe` —— 便携版（免安装，双击即用）
+- `latest.yml` / `*.blockmap` —— 更新元数据与增量更新块映射
 
-## 1. Preflight
+## 版本号规则
 
-```bash
-git status --short --branch
-git log --oneline --decorate -5
-gh auth status
-npm whoami
-node -e "const p=require('./package.json'); console.log(p.version)"
-```
-
-Expected:
-
-- `git status` is clean, or only contains changes you intentionally plan to release.
-- GitHub is authenticated as an account that can push and create releases.
-- npm is authenticated as an account that can publish `@agegr/pi-web`.
-
-## 2. Publish to npm
+- 基础版本号来自 `package.json` 的 `version`（如 `0.8.1`，prerelease 后缀会被去掉）。
+- CI 会在末尾拼时间戳，生成唯一版本号：`<base>-build.<yyyyMMddHHmm>`（如 `0.8.1-build.202608091641`）。
+- 每个构建对应一个独立的 GitHub Release，tag 为 `v<version>`。时间戳只在 CI 工作区里临时写入 `package.json`，不会提交回仓库。
+- 想提升基础版本号时，在发布前本地执行并提交推送：
 
 ```bash
-npm run release
-```
-
-The release script runs:
-
-```bash
-npm version patch --no-git-tag-version && npm run build && npm publish --access public
-```
-
-Notes:
-
-- This bumps `package.json` and `package-lock.json`.
-- It intentionally runs a production build. Do not run `next build` during normal development; release work is the exception.
-- If `npm view @agegr/pi-web version` briefly shows the previous version, check the exact version instead:
-
-```bash
-npm view @agegr/pi-web@<version> version --registry https://registry.npmjs.org/
-npm view @agegr/pi-web versions --json --registry https://registry.npmjs.org/
-```
-
-## 3. Commit the Version Bump
-
-Replace `<version>` with the new package version, for example `0.7.5`.
-
-```bash
-git diff -- package.json package-lock.json
+npm version patch --no-git-tag-version   # 或 minor / major
 git add package.json package-lock.json
-git commit -m "Release v<version>"
+git commit -m "Bump version to <version>"
+git push
 ```
 
-## 4. Tag and Push
+## 发布步骤
+
+### 1. 发布前检查
 
 ```bash
-git tag -a v<version> -m "v<version>"
-git push origin main --tags
+node_modules/.bin/tsc --noEmit
+npm run lint
+node --test
+git status --short --branch
 ```
 
-Confirm the tag does not already exist before creating it when unsure:
+确认工作区干净、改动已推送到 `main`。
+
+### 2. 触发构建
+
+GitHub 仓库页面 → **Actions** → **Build and Release Pi Web Desktop** → **Run workflow**（选择 `main` 分支）。
+
+工作流（`.github/workflows/build-desktop.yml`，windows-latest）会自动完成：
+
+1. `npm ci`（带 `npm_config_allow_scripts=true`，确保 `postinstall` 修正 `.next` 的哈希外部模块引用）
+2. 计算并写入时间戳版本号
+3. `npm run build` 构建 Next.js 生产包
+4. `npx electron-builder --win --x64` 打包安装程序和便携版
+5. 校验打包结果（`release/win-unpacked/resources/app/electron/main.js` 存在等）
+6. 上传构建产物并创建 GitHub Release（`v<version>`）
+
+### 3. 发布后验证
 
 ```bash
-git ls-remote --tags origin v<version>
-gh release view v<version> --repo agegr/pi-web
+gh release list --repo yejion/pi-web-personal-use
+gh release view v<version> --repo yejion/pi-web-personal-use
 ```
 
-## 5. Generate Release Notes from Commits
+建议下载安装程序实际安装一次，确认桌面应用能正常启动（内置服务器日志在应用数据目录的 `logs/pi-web-server.log`）。
 
-Use the previous release tag as the base.
+## 本地构建（不发 Release）
 
 ```bash
-git log --oneline --decorate v<previous>..v<version>
-git log --format='%h%x09%s%n%b' v<previous>..v<version>
-git diff --stat v<previous>..v<version>
+npm run build          # 先构建 .next（Electron 启动依赖它）
+npm run desktop        # 本地试运行 Electron 壳
+npm run desktop:pack   # 只打包到 release/win-unpacked（不生成安装包，快速验证）
+npm run desktop:build  # 完整构建：next build + electron-builder，产物在 release/
 ```
 
-Write the release notes from those commits, not from memory. Include both Chinese and English sections. Keep commit hashes next to each item when useful.
+注意：本地构建直接使用 `package.json` 里的版本号，不会追加 CI 的时间戳后缀。
 
-Suggested structure:
+## 修改 Release 说明
 
-```markdown
-## 中文
+工作流创建的 Release 使用固定的说明模板。需要补充内容时，事后编辑：
 
-基于 `v<previous>..v<version>` 的提交整理。
-
-### 新增
+```bash
+gh release edit v<version> --repo yejion/pi-web-personal-use --notes-file - <<'EOF'
+## 更新内容
 
 - ...
 
-### 修复
+## 文件说明
 
-- ...
-
-### 改进
-
-- ...
-
-### 内部调整
-
-- 发布 npm 包 `@agegr/pi-web@<version>`。
-
-## English
-
-Prepared from commits in `v<previous>..v<version>`.
-
-### Added
-
-- ...
-
-### Fixed
-
-- ...
-
-### Improved
-
-- ...
-
-### Internal
-
-- Published npm package `@agegr/pi-web@<version>`.
-```
-
-## 6. Create or Update the GitHub Release
-
-Create a new release:
-
-```bash
-gh release create v<version> \
-  --repo agegr/pi-web \
-  --verify-tag \
-  --title "v<version>" \
-  --notes-file release-notes.md
-```
-
-If the release already exists and only the notes need updating:
-
-```bash
-gh release edit v<version> \
-  --repo agegr/pi-web \
-  --notes-file release-notes.md
-```
-
-You can avoid a temporary file by passing notes through stdin:
-
-```bash
-gh release edit v<version> --repo agegr/pi-web --notes-file - <<'EOF'
-## 中文
-
-...
-
-## English
-
-...
+- **Pi-Web-Setup-*.exe** —— 安装程序（推荐，自动创建桌面快捷方式）
+- **Pi-Web-*-portable.exe** —— 便携版（免安装，双击即用）
 EOF
 ```
 
-## 7. Final Verification
+写说明时以本次发布包含的提交为准（`git log --oneline v<上一个tag>..HEAD`），不要凭记忆写。
 
-```bash
-gh release view v<version> --repo agegr/pi-web
-npm view @agegr/pi-web@<version> version --registry https://registry.npmjs.org/
-git status --short --branch
-git log --oneline --decorate -3
-```
+## 常见问题
 
-Expected:
-
-- GitHub Release exists and is not a draft unless intentionally published as one.
-- npm exact version resolves.
-- `main` is aligned with `origin/main`.
-- `HEAD` points at the release commit and `v<version>` tag.
+- **打包后启动失败**：先看工作流的 "Verify app contents" 步骤输出；本仓库 `asar: false`，打包后的目录结构是 `release/win-unpacked/resources/app/`（含 `electron/`、`bin/`、`.next/`、`public/`）。
+- **服务器起不来**：桌面版内置服务器日志在应用 `logs/pi-web-server.log`，启动失败的错误弹窗里也会显示该路径。
+- **externals 找不到**：`bin/postinstall.js` 负责把 `node_modules` 里的包复制成 `.next` 构建产物引用的哈希名；CI 里已通过 `npm_config_allow_scripts=true` 保证它执行，本地若手动跳过脚本可能导致打包后启动失败。
