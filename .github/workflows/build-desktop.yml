@@ -53,7 +53,7 @@ jobs:
           Write-Host "=== app.asar unpacked / app dir ==="
           Get-ChildItem -Path "release/win-unpacked/resources" -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 30 FullName
           Write-Host "=== electron/main.js exists ==="
-          Test-Path "release/win-unpacked/resources/app/electron/main.js"
+          Test-Path "release/win-unpacked/resources/app/main.js"
 
       - name: List release artifacts
         run: Get-ChildItem -Path release -Recurse | Select-Object Name, Length

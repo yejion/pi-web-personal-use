@@ -89,7 +89,9 @@
       "!**/node_modules/.cache",
       "public/**/*",
       "next.config.ts",
-      "package.json"
+      "package.json",
+      "main.js",
+      "start-error.html"
     ],
     "win": {
       "target": [
@@ -119,5 +121,5 @@
   "allowScripts": {
     "electron@43.3.0": true
   },
-  "main": "electron/main.js"
+  "main": "main.js"
 }
