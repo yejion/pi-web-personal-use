@@ -154,8 +154,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   const inUse = await isPortInUse();
   if (inUse) {
-    appendLog("port already in use, reusing existing server
-");
+    appendLog("port already in use, reusing existing server\n");
     createWindow().loadURL(URL);
     return;
   }
