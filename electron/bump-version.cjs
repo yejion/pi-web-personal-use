@@ -5,6 +5,5 @@ const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
 const parts = pkg.version.split("-")[0].split(".").map(Number);
 parts[2]++;
 pkg.version = parts.join(".");
-fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "
-");
+fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + String.fromCharCode(10));
 console.log(pkg.version);
