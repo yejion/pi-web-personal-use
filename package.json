@@ -78,7 +78,7 @@
   },
   "build": {
     "appId": "com.yejion.piweb",
-    "productName": "Pi Web Desktop",
+    "productName": "pi-web",
     "directories": {
       "output": "release"
     },
@@ -112,7 +112,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Pi Web"
+      "shortcutName": "pi-web",
+      "displayName": "pi-web"
     },
     "asar": false
   },
