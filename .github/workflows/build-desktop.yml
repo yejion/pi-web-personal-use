@@ -28,13 +28,13 @@ jobs:
         env:
           npm_config_allow_scripts: "true"
 
-      - name: Compute unique build version
+      - name: Read version
         id: version
         shell: pwsh
         run: |
-          $newVersion = node electron/bump-version.cjs
-          echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
-          echo "Build version: $newVersion"
+          $ver = node -p "require('./package.json').version"
+          echo "new_version=$ver" >> $env:GITHUB_OUTPUT
+          echo "Building version: $ver"
 
       - name: Build Next.js production bundle
         run: npm run build
