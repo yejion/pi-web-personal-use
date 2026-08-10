@@ -1,6 +1,9 @@
 name: Build and Release Pi Web Desktop
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
