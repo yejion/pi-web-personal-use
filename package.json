@@ -112,8 +112,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "pi-web",
-      "displayName": "pi-web"
+      "shortcutName": "pi-web"
     },
     "asar": false
   },
