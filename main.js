@@ -55,7 +55,7 @@ function waitForServer(timeoutMs, onReady, onFail) {
       if (Date.now() - started > timeoutMs) {
         onFail(new Error(`Timed out waiting for ${URL}`));
       } else {
-        setTimeout(check, 300);
+        setTimeout(check, 150);
       }
     });
   };
