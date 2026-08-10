@@ -29,13 +29,7 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $current = node -p "require('./package.json').version"
-          $base = ($current -split '-')[0]
-          $parts = $base -split '.'
-          $patch = [int]$parts[2] + 1
-          $newVersion = "$($parts[0]).$($parts[1]).$patch"
-          Write-Host "Bumping version: $current -> $newVersion"
-          node -e "const fs=require('fs');const p=require('./package.json');p.version='$newVersion';fs.writeFileSync('./package.json',JSON.stringify(p,null,2)+'\n')"
+          $newVersion = node electron/bump-version.cjs
           echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
           echo "Build version: $newVersion"
 
