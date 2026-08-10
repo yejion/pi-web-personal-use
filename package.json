@@ -107,14 +107,14 @@
             "x64"
           ]
         }
-      ],
-      "artifactName": "${productName}-${version}-${target}.${ext}"
+      ]
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "pi-web"
+      "shortcutName": "pi-web",
+      "artifactName": "${productName}-${version}-setup.${ext}"
     },
     "asar": false,
     "portable": {
