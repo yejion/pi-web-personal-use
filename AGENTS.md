@@ -1,5 +1,9 @@
 # Pi Web - Development Notes
 
+## Principles
+
+- **Every commit bumps the patch version** (`npm version patch --no-git-tag-version`) — no exceptions, even for docs/fixes.
+
 ## Quick Start
 
 ```bash
