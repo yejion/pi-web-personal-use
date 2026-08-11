@@ -37,9 +37,12 @@ export function normalizeDirectory(directory: string): string {
 }
 
 export function getParentDirectory(directory: string): string | null {
+  // Pick the path API by the INPUT path style, not the host platform, so a
+  // POSIX-style path keeps forward slashes even when the server runs on
+  // Windows (path.win32 would rewrite /Users/alex to \Users\alex).
   const pathApi = /^[a-zA-Z]:[\\/]/.test(directory) || directory.startsWith("\\\\")
     ? path.win32
-    : path;
+    : path.posix;
   const normalized = pathApi.normalize(directory);
   const parent = pathApi.dirname(normalized);
   return parent === normalized ? null : parent;
