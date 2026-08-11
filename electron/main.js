@@ -97,14 +97,17 @@ function startPiWebServer() {
   }
   appendLog(`  nextBin: ${nextBin}\n`);
 
-  const args = ["start", "-p", String(PORT), "-H", HOST];
+  const args = [path.join(__dirname, "server-child.js"), nextBin, "start", "-p", String(PORT), "-H", HOST];
 
-  const child = spawn(process.execPath, [nextBin, ...args], {
+  const child = spawn(process.execPath, args, {
     cwd: pkgDir,
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1",
+      // Lets the server child self-exit if this main process dies without a
+      // graceful quit (installer force-kill, crash) — see server-child.js.
+      PI_WEB_PARENT_PID: String(process.pid),
     },
     windowsHide: false,
   });
@@ -187,12 +190,26 @@ app.whenReady().then(async () => {
 
 app.on("before-quit", () => {
   quitting = true;
-  if (serverProcess && !serverProcess.killed) {
-    try {
-      serverProcess.kill();
-    } catch { /* ignore */ }
-  }
+  killServerProcessTree();
 });
+
+// Kill the server AND its whole process tree (agent bash commands can leave
+// grandchildren behind). serverProcess.kill() alone only signals the direct
+// child, and on Windows there is no SIGTERM — TerminateProcess on the child
+// would orphan anything it spawned.
+function killServerProcessTree() {
+  if (!serverProcess || serverProcess.killed) return;
+  try {
+    if (process.platform === "win32") {
+      spawn("taskkill", ["/PID", String(serverProcess.pid), "/T", "/F"], {
+        stdio: "ignore",
+        windowsHide: true,
+      }).unref();
+    } else {
+      serverProcess.kill("SIGKILL");
+    }
+  } catch { /* ignore */ }
+}
 
 app.on("window-all-closed", () => {
   app.quit();
