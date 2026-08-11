@@ -66,7 +66,10 @@ class PlainTextTheme extends Theme {
   constructor() {
     super(
       { thinkingXhigh: "" } as ConstructorParameters<typeof Theme>[0],
-      {} as ConstructorParameters<typeof Theme>[1],
+      // pi ≥0.84 resolves fallback keys in the Theme constructor
+      // (scrollbarThumb ?? selectedBg) and parses every value, so an empty
+      // bg map now crashes on undefined. "" is a valid no-op color.
+      { selectedBg: "" } as ConstructorParameters<typeof Theme>[1],
       "truecolor",
     );
   }
@@ -1017,6 +1020,16 @@ function getLocks(): Map<string, Promise<{ session: AgentSessionWrapper; realSes
 
 export function getRpcSession(sessionId: string): AgentSessionWrapper | undefined {
   return getRegistry().get(sessionId);
+}
+
+/**
+ * All live wrappers, including idle ones. Used to surface sessions whose
+ * .jsonl has not been flushed to disk yet (pi's SessionManager only creates
+ * the file once the first assistant message lands, so a session that is still
+ * on its first run is invisible to the disk scan in listAllSessions()).
+ */
+export function getAliveRpcSessions(): AgentSessionWrapper[] {
+  return [...getRegistry().values()].filter((s) => s.isAlive());
 }
 
 export function getRunningRpcSessionIds(): string[] {

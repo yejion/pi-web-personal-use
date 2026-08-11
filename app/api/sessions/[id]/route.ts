@@ -137,7 +137,19 @@ export async function GET(
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    const sm = SessionManager.open(filePath);
+    // pi's SessionManager only creates the .jsonl once the first assistant
+    // message lands. While a new session is still on its first run the file
+    // does not exist yet — serve the live in-memory manager so the session
+    // stays openable. (SessionManager.open() on a missing path would
+    // fabricate an empty session with a fresh random id — never do that.)
+    const liveManager = (() => {
+      const live = getRpcSession(id);
+      return live?.isAlive() ? live.inner.sessionManager : undefined;
+    })();
+    if (!existsSync(filePath) && !liveManager) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+    const sm = existsSync(filePath) ? SessionManager.open(filePath) : liveManager!;
     const entries = sm.getEntries() as never;
     // Compute total cost from model pricing read live from models.json,
     // so any pi agent configuration works without hardcoded prices.
@@ -262,7 +274,16 @@ export async function PATCH(
     if (!filePath) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
-    const sm = SessionManager.open(filePath);
+    // Rename a live session whose file has not been flushed yet by mutating
+    // its in-memory manager; the name is persisted with the first flush.
+    const liveManager = (() => {
+      const live = getRpcSession(id);
+      return live?.isAlive() ? live.inner.sessionManager : undefined;
+    })();
+    if (!existsSync(filePath) && !liveManager) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+    const sm = existsSync(filePath) ? SessionManager.open(filePath) : liveManager!;
     sm.appendSessionInfo(name.trim());
     invalidateSessionListCache();
     return NextResponse.json({ ok: true });
@@ -281,6 +302,19 @@ export async function DELETE(
     const filePath = await resolveSessionPath(id);
     if (!filePath) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+
+    if (!existsSync(filePath)) {
+      // Never flushed to disk (no assistant message yet) — just drop the
+      // in-memory runtime so it disappears from the merged session list.
+      const live = getRpcSession(id);
+      if (!live?.isAlive()) {
+        return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      }
+      live.destroy();
+      invalidateSessionPathCache(id);
+      invalidateSessionListCache();
+      return NextResponse.json({ ok: true });
     }
 
     // Read only the bounded header before deleting.
