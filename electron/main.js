@@ -40,6 +40,20 @@ function appendLog(text) {
   } catch { /* ignore */ }
 }
 
+const SPLASH_FILE = path.join(__dirname, "splash.html");
+const ERROR_FILE = path.join(__dirname, "start-error.html");
+
+// Splash status line update — no-op once the workspace has navigated away.
+function setSplashStatus(win, text) {
+  try {
+    if (win && !win.isDestroyed()) {
+      win.webContents
+        .executeJavaScript(`document.getElementById("status")?.textContent = ${JSON.stringify(text)}`)
+        .catch(() => {});
+    }
+  } catch { /* ignore */ }
+}
+
 function waitForServer(timeoutMs, onReady, onFail) {
   const started = Date.now();
   const net = require("net");
@@ -155,23 +169,46 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Timestamped boot milestones — check pi-web-server.log when startup feels slow.
+  const bootedAt = Date.now();
+  const mark = (label) => appendLog(`  [+${String(Date.now() - bootedAt).padStart(6)}ms] ${label}\n`);
+  let serverReady = false;
+
+  // Open the window IMMEDIATELY with a static splash page instead of waiting
+  // for the server: perceived startup drops from "server boot time" to ~0.
+  const win = createWindow();
+  mark("window created");
+  win.loadFile(SPLASH_FILE);
+
   const inUse = await isPortInUse();
   if (inUse) {
     appendLog("port already in use, reusing existing server\n");
-    createWindow().loadURL(URL);
+    mark("port check: already in use");
+    serverReady = true;
+    win.loadURL(URL);
+    mark("loadURL called");
     return;
   }
   serverProcess = startPiWebServer();
+  mark("server process spawned");
+  setSplashStatus(win, "正在启动内置服务器…");
 
   waitForServer(
     40000,
     () => {
       if (quitting) return;
-      const win = createWindow();
+      mark("port ready");
+      serverReady = true;
+      setSplashStatus(win, "加载工作台…");
       win.loadURL(URL);
+      mark("loadURL called");
     },
     (err) => {
+      mark(`FATAL: ${err.message}`);
       appendLog(`  FATAL: ${err.message}\n`);
+      if (!win.isDestroyed()) {
+        win.loadFile(ERROR_FILE, { query: { message: err.message } });
+      }
       dialog.showErrorBox(
         "Pi Web 启动失败",
         `${err.message}\n\n请查看日志: ${LOG}`,
@@ -182,8 +219,9 @@ app.whenReady().then(async () => {
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0 && serverProcess) {
-      const win = createWindow();
-      win.loadURL(URL);
+      const w = createWindow();
+      if (serverReady) w.loadURL(URL);
+      else w.loadFile(SPLASH_FILE);
     }
   });
 });
