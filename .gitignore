@@ -18,7 +18,10 @@
 /out/
 
 # production
-/build
+# /build is electron-builder's build-resources dir: ignore stray build output
+# in it, but the NSIS include script must be tracked
+/build/*
+!/build/installer.nsh
 
 # misc
 .DS_Store

@@ -20,7 +20,7 @@ if (Number.isInteger(parentPid) && parentPid > 0) {
     } catch {
       process.exit(0);
     }
-  }, 3000).unref();
+  }, 1000).unref();
 }
 
 const [, , nextBin, ...nextArgs] = process.argv;

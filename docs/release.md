@@ -92,3 +92,4 @@ EOF
 - **打包后启动失败**：先看工作流的 "Verify app contents" 步骤输出；本仓库 `asar: false`，打包后的目录结构是 `release/win-unpacked/resources/app/`（含 `electron/`、`bin/`、`.next/`、`public/`）。
 - **服务器起不来**：桌面版内置服务器日志在应用 `logs/pi-web-server.log`，启动失败的错误弹窗里也会显示该路径。
 - **externals 找不到**：`bin/postinstall.js` 负责把 `node_modules` 里的包复制成 `.next` 构建产物引用的哈希名；CI 里已通过 `npm_config_allow_scripts=true` 保证它执行，本地若手动跳过脚本可能导致打包后启动失败。
+- **安装/卸载时提示“无法关闭 pi-web，请重试”**：应用同时跑两个 `pi-web.exe`——Electron 主进程和内置服务器子进程（`ELECTRON_RUN_AS_NODE`，**没有窗口**）。electron-builder 默认的关应用逻辑先走 WM_CLOSE，够不到无窗口进程；PowerShell 被判定不可用（全新 Windows 默认 Restricted 策略）时走 taskkill 回退，重试两次（约 4 秒）就弹框。0.8.13 起用 `build/installer.nsh` 的 `customCheckAppRunning` 替换默认逻辑：先 WM_CLOSE 优雅退出，再 `taskkill /F /T` 强制结束整棵进程树，多次重试后才弹框。若用老版本安装包遇到此框，在任务管理器结束所有 `pi-web.exe`（或 `taskkill /F /T /IM pi-web.exe`）后点重试即可。

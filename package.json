@@ -114,6 +114,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "shortcutName": "pi-web",
+      "include": "build/installer.nsh",
       "artifactName": "${productName}-${version}-setup.${ext}"
     },
     "asar": false,

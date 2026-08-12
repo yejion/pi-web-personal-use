@@ -5,7 +5,7 @@
 // distributable desktop app.
 
 const { app, BrowserWindow, shell, dialog } = require("electron");
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 
@@ -197,14 +197,18 @@ app.on("before-quit", () => {
 // grandchildren behind). serverProcess.kill() alone only signals the direct
 // child, and on Windows there is no SIGTERM — TerminateProcess on the child
 // would orphan anything it spawned.
+// spawnSync, not fire-and-forget spawn: the main process exits right after
+// before-quit, and the tree must be dead before that. An orphaned server
+// child is windowless, so the NSIS installer's graceful WM_CLOSE can never
+// reach it and the next install/uninstall gets stuck on "cannot close pi-web".
 function killServerProcessTree() {
   if (!serverProcess || serverProcess.killed) return;
   try {
     if (process.platform === "win32") {
-      spawn("taskkill", ["/PID", String(serverProcess.pid), "/T", "/F"], {
+      spawnSync("taskkill", ["/PID", String(serverProcess.pid), "/T", "/F"], {
         stdio: "ignore",
         windowsHide: true,
-      }).unref();
+      });
     } else {
       serverProcess.kill("SIGKILL");
     }
