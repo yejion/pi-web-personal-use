@@ -45,3 +45,6 @@ next-env.d.ts
 .factory
 # electron-builder output
 /release/
+
+# crash dumps
+*.stackdump
