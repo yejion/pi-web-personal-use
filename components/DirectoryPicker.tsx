@@ -37,9 +37,11 @@ interface Props {
   onSelect: (path: string) => void;
   busy?: boolean;
   error?: string | null;
+  /** Directory to open initially. Falls back to the server default (home) when omitted. */
+  initialPath?: string | null;
 }
 
-export function DirectoryPicker({ onCancel, onSelect, busy = false, error }: Props) {
+export function DirectoryPicker({ onCancel, onSelect, busy = false, error, initialPath }: Props) {
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [currentPath, setCurrentPath] = useState("");
   const [parentDirectory, setParentDirectory] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function DirectoryPicker({ onCancel, onSelect, busy = false, error }: Pro
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const navigateTo = useCallback(async (directory?: string) => {
+  const navigateTo = useCallback(async (directory?: string): Promise<boolean> => {
     setLoading(true);
     setLoadError(null);
     try {
@@ -61,8 +63,10 @@ export function DirectoryPicker({ onCancel, onSelect, busy = false, error }: Pro
       setPathInput(nextPath);
       setDirectories(data.directories ?? []);
       if (data.drives) setDrives(data.drives);
+      return true;
     } catch (cause) {
       setLoadError(cause instanceof Error ? cause.message : String(cause));
+      return false;
     } finally {
       setLoading(false);
     }
@@ -70,7 +74,15 @@ export function DirectoryPicker({ onCancel, onSelect, busy = false, error }: Pro
 
   useEffect(() => {
     setPortalTarget(document.body);
-    void navigateTo();
+    void (async () => {
+      // Prefer the current working directory; fall back to the server default
+      // (home) when it is missing or no longer exists (e.g. removed worktree).
+      if (initialPath && await navigateTo(initialPath)) return;
+      await navigateTo();
+    })();
+    // Only navigate to initialPath on mount — later prop changes must not yank
+    // the user away from the directory they already navigated to.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigateTo]);
 
   const handlePathSubmit = (event: FormEvent<HTMLFormElement>) => {
