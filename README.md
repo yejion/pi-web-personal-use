@@ -160,7 +160,8 @@ components/
   BranchNavigator.tsx # in-session branch switcher
   ChatMinimap.tsx     # scroll minimap
 electron/
-  main.js             # desktop shell: spawns `next start`, opens the window
+  main.js             # desktop shell: instant splash window, spawns the standalone server
+  server-child.js     # server entry wrapper: parent-death watchdog, then requires server.js
 lib/
   rpc-manager.ts      # AgentSessionWrapper lifecycle and global registry
   session-reader.ts   # parses .jsonl session files and branch contexts
@@ -177,7 +178,8 @@ hooks/
   useKeyboardShortcuts.ts
   useTheme.ts         # theme switching
 bin/
-  pi-web.js           # CLI entrypoint
+  pi-web.js           # CLI entrypoint (runs .next/standalone/server.js)
+  prepare-standalone.js # copies .next/static + public into the standalone tree after build
   postinstall.js      # fixes hashed external module refs in .next build output
 proxy.ts              # Next.js middleware guarding /api/* against cross-origin requests
 instrumentation.ts    # initializes the server HTTP dispatcher

@@ -1,6 +1,6 @@
 {
   "name": "pi-web-personal",
-  "version": "0.8.14",
+  "version": "0.8.15",
   "description": "Personal pi-web desktop launcher — web UI for the pi coding agent",
   "homepage": "https://github.com/yejion/pi-web-personal-use#readme",
   "repository": {
@@ -19,25 +19,20 @@
   },
   "files": [
     "bin",
-    ".next",
-    "!.next/cache",
-    "!.next/dev",
-    "!.next/**/*.js.map",
-    "public",
-    "next.config.ts",
+    ".next/standalone",
     "package.json"
   ],
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 30141",
     "dev:lan": "next dev -H 0.0.0.0 -p 30141",
-    "build": "next build",
+    "build": "next build && node bin/prepare-standalone.js",
     "start": "next start -H 127.0.0.1 -p 30141",
     "start:lan": "next start -H 0.0.0.0 -p 30141",
     "lint": "eslint .",
     "release": "npm version patch --no-git-tag-version && npm run build && npm publish --access public",
     "postinstall": "node bin/postinstall.js",
     "desktop": "electron electron/main.js",
-    "desktop:build": "next build && electron-builder --win",
+    "desktop:build": "npm run build && electron-builder --win",
     "desktop:pack": "electron-builder --win --dir"
   },
   "dependencies": {
@@ -85,10 +80,10 @@
     "files": [
       "electron/**/*",
       "bin/**/*",
-      ".next/**/*",
+      ".next/standalone/**/*",
       "!**/node_modules/.cache",
-      "public/**/*",
-      "next.config.ts",
+      "!node_modules/**/*",
+      "!**/*.test.mjs",
       "package.json",
       "main.js",
       "start-error.html"

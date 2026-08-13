@@ -14,6 +14,8 @@ Typecheck: `node_modules/.bin/tsc --noEmit`
 Lint: `npm run lint`  
 **Never run `next build` during dev** — pollutes `.next/` and breaks `npm run dev`.
 
+**Production builds are Next standalone** (`output: "standalone"`): `npm run build` = `next build` + `bin/prepare-standalone.js` (copies `.next/static` + `public` into `.next/standalone`). All runtime entrypoints — `bin/pi-web.js`, `electron/main.js` (via `server-child.js`) — run `.next/standalone/server.js` with `PORT`/`HOSTNAME` env vars, never the `next` CLI. The desktop package ships **only** `.next/standalone/**` (root `node_modules` excluded in electron-builder `files`).
+
 ---
 
 ## Architecture

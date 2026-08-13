@@ -19,27 +19,15 @@ const fs = require("fs");
 const { parseLaunchOptions } = require("./pi-web-options");
 
 const pkgDir = path.join(__dirname, "..");
-const nextDir = path.join(pkgDir, ".next");
-
-// Resolve next's CLI entry directly to avoid relying on .bin symlinks (which
-// may not exist when installed via npx).
-let nextBin;
-try {
-  nextBin = require.resolve("next/dist/bin/next", { paths: [pkgDir] });
-} catch {
-  // Fallback: locate next package root and derive the bin path manually.
-  try {
-    const nextPkg = require.resolve("next/package.json", { paths: [pkgDir] });
-    nextBin = path.join(path.dirname(nextPkg), "dist", "bin", "next");
-  } catch {
-    nextBin = path.join(pkgDir, "node_modules", "next", "dist", "bin", "next");
-  }
-}
+// Next standalone build: a self-contained server traced down to the files it
+// actually uses. Cold start reads far fewer files than "next start" against
+// the full .next + node_modules tree.
+const serverEntry = path.join(pkgDir, ".next", "standalone", "server.js");
 
 const { port, hostname, openBrowser } = parseLaunchOptions();
 const loopbackHostnames = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
-if (!fs.existsSync(nextDir)) {
+if (!fs.existsSync(serverEntry)) {
   console.error("Build artifacts not found. Please report this issue.");
   process.exit(1);
 }
@@ -50,15 +38,13 @@ if (!loopbackHostnames.has(hostname)) {
   );
 }
 
-const nextArgs = ["start", "-p", port];
-nextArgs.push("-H", hostname);
-
-// Always run next's JS entry with node directly — avoids .bin symlink issues
-// and path-with-spaces problems on Windows when shell: true is used.
-const child = spawn(process.execPath, [nextBin, ...nextArgs], {
-  cwd: pkgDir,
+// Always run the server JS entry with node directly — avoids .bin symlink
+// issues and path-with-spaces problems on Windows when shell: true is used.
+// The standalone server reads PORT/HOSTNAME from the environment.
+const child = spawn(process.execPath, [serverEntry], {
+  cwd: path.dirname(serverEntry),
   stdio: ["inherit", "pipe", "inherit"],
-  env: { ...process.env },
+  env: { ...process.env, PORT: String(port), HOSTNAME: hostname },
 });
 
 let browserOpened = false;

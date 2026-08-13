@@ -5,6 +5,10 @@ const eslintConfig = [
   ...coreWebVitals,
   ...typescript,
   {
+    // electron-builder output — never lint packaged artifacts.
+    ignores: ["release/**"],
+  },
+  {
     rules: {
       "react-hooks/immutability": "off",
       "react-hooks/refs": "off",

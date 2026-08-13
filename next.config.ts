@@ -10,6 +10,10 @@ try {
 } catch { /* package not found, use default */ }
 
 const nextConfig: NextConfig = {
+  // Produce a self-contained server bundle (.next/standalone/server.js) with
+  // file-traced node_modules — far fewer files to read at cold start than
+  // "next start" against the full .next + node_modules tree.
+  output: "standalone",
   serverExternalPackages: [
     "undici",
     "@earendil-works/pi-coding-agent",

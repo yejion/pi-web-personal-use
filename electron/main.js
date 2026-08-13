@@ -87,38 +87,29 @@ function isPortInUse() {
 
 function startPiWebServer() {
   const pkgDir = resolvePkgDir();
-  const nextDir = path.join(pkgDir, ".next");
+  // Next standalone bundle: self-contained server with traced node_modules.
+  const serverEntry = path.join(pkgDir, ".next", "standalone", "server.js");
 
   appendLog(`\n[${new Date().toISOString()}] starting pi-web server\n`);
   appendLog(`  pkgDir: ${pkgDir}\n`);
-  appendLog(`  nextDir exists: ${fs.existsSync(nextDir)}\n`);
+  appendLog(`  serverEntry exists: ${fs.existsSync(serverEntry)}\n`);
 
-  if (!fs.existsSync(nextDir)) {
+  if (!fs.existsSync(serverEntry)) {
     appendLog("  FATAL: build artifacts not found\n");
     return null;
   }
 
-  let nextBin;
-  try {
-    nextBin = require.resolve("next/dist/bin/next", { paths: [pkgDir] });
-  } catch {
-    try {
-      const nextPkg = require.resolve("next/package.json", { paths: [pkgDir] });
-      nextBin = path.join(path.dirname(nextPkg), "dist", "bin", "next");
-    } catch {
-      nextBin = path.join(pkgDir, "node_modules", "next", "dist", "bin", "next");
-    }
-  }
-  appendLog(`  nextBin: ${nextBin}\n`);
-
-  const args = [path.join(__dirname, "server-child.js"), nextBin, "start", "-p", String(PORT), "-H", HOST];
+  const args = [path.join(__dirname, "server-child.js"), serverEntry];
 
   const child = spawn(process.execPath, args, {
-    cwd: pkgDir,
+    cwd: path.dirname(serverEntry),
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1",
+      // The standalone server reads PORT/HOSTNAME from the environment.
+      PORT: String(PORT),
+      HOSTNAME: HOST,
       // Lets the server child self-exit if this main process dies without a
       // graceful quit (installer force-kill, crash) — see server-child.js.
       PI_WEB_PARENT_PID: String(process.pid),
