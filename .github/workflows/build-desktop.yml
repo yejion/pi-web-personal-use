@@ -50,10 +50,14 @@ jobs:
       - name: Verify app contents
         shell: pwsh
         run: |
-          Write-Host "=== app.asar unpacked / app dir ==="
+          Write-Host "=== app dir ==="
           Get-ChildItem -Path "release/win-unpacked/resources" -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 30 FullName
-          Write-Host "=== electron/main.js exists ==="
-          Test-Path "release/win-unpacked/resources/app/main.js"
+          # Hard asserts: the packaged entry is electron/main.js (package.json
+          # "main") and the standalone server bundle must be present. A stale
+          # root main.js means the entry diverged — fail instead of shipping it.
+          if (-not (Test-Path "release/win-unpacked/resources/app/electron/main.js")) { throw "electron/main.js missing from package" }
+          if (Test-Path "release/win-unpacked/resources/app/main.js") { throw "stale root main.js present in package" }
+          if (-not (Test-Path "release/win-unpacked/resources/app/.next/standalone/server.js")) { throw "standalone server.js missing from package" }
 
       - name: List release artifacts
         run: Get-ChildItem -Path release -Recurse | Select-Object Name, Length
