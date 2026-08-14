@@ -1,6 +1,6 @@
 {
   "name": "pi-web-personal",
-  "version": "0.8.18",
+  "version": "0.8.19",
   "description": "Personal pi-web desktop launcher — web UI for the pi coding agent",
   "homepage": "https://github.com/yejion/pi-web-personal-use#readme",
   "repository": {
@@ -19,18 +19,17 @@
   },
   "files": [
     "bin",
-    ".next/standalone",
+    "dist",
     "package.json"
   ],
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 30141",
     "dev:lan": "next dev -H 0.0.0.0 -p 30141",
-    "build": "next build && node bin/prepare-standalone.js",
-    "start": "next start -H 127.0.0.1 -p 30141",
-    "start:lan": "next start -H 0.0.0.0 -p 30141",
+    "build": "node bin/build-all.js",
+    "start": "node bin/pi-web.js",
+    "start:lan": "node bin/pi-web.js -H 0.0.0.0",
     "lint": "eslint .",
     "release": "npm version patch --no-git-tag-version && npm run build && npm publish --access public",
-    "postinstall": "node bin/postinstall.js",
     "desktop": "electron electron/main.js",
     "desktop:build": "npm run build && electron-builder --win",
     "desktop:pack": "electron-builder --win --dir"
@@ -52,8 +51,10 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@vercel/nft": "^1.10.2",
     "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "jiti": "^2.7.0",
@@ -80,7 +81,7 @@
     "files": [
       "electron/**/*",
       "bin/**/*",
-      ".next/standalone/**/*",
+      "dist/**/*",
       "!**/node_modules/.cache",
       "!node_modules/**/*",
       "!**/*.test.mjs",

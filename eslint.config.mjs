@@ -5,8 +5,8 @@ const eslintConfig = [
   ...coreWebVitals,
   ...typescript,
   {
-    // electron-builder output — never lint packaged artifacts.
-    ignores: ["release/**"],
+    // Build artifacts — never lint packaged/bundled output.
+    ignores: ["release/**", "dist/**", "out/**"],
   },
   {
     rules: {

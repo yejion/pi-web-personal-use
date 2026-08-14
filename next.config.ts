@@ -10,10 +10,10 @@ try {
 } catch { /* package not found, use default */ }
 
 const nextConfig: NextConfig = {
-  // Produce a self-contained server bundle (.next/standalone/server.js) with
-  // file-traced node_modules — far fewer files to read at cold start than
-  // "next start" against the full .next + node_modules tree.
-  output: "standalone",
+  // PI_WEB_EXPORT=1: static client build for the embedded production server
+  // (server/ + dist/server.cjs serve it). Otherwise: standalone bundle.
+  // app/api and proxy.ts are stashed away by bin/build-all.js during export.
+  output: process.env.PI_WEB_EXPORT === "1" ? "export" : "standalone",
   serverExternalPackages: [
     "undici",
     "@earendil-works/pi-coding-agent",
@@ -22,16 +22,20 @@ const nextConfig: NextConfig = {
     "@earendil-works/pi-tui",
   ],
   allowedDevOrigins: ['192.168.*.*'],
-  async headers() {
-    return [
-      {
-        source: "/",
-        headers: [
-          { key: "Cache-Control", value: "private, no-cache, max-age=0, must-revalidate" },
-        ],
-      },
-    ];
-  },
+  // Static export does not support headers(); the embedded server sets the
+  // same Cache-Control itself (see server/static.ts).
+  ...(process.env.PI_WEB_EXPORT === "1" ? {} : {
+    async headers() {
+      return [
+        {
+          source: "/",
+          headers: [
+            { key: "Cache-Control", value: "private, no-cache, max-age=0, must-revalidate" },
+          ],
+        },
+      ];
+    },
+  }),
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
     NEXT_PUBLIC_PI_VERSION: piVersion,

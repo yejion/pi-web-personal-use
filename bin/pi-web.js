@@ -19,10 +19,9 @@ const fs = require("fs");
 const { parseLaunchOptions } = require("./pi-web-options");
 
 const pkgDir = path.join(__dirname, "..");
-// Next standalone build: a self-contained server traced down to the files it
-// actually uses. Cold start reads far fewer files than "next start" against
-// the full .next + node_modules tree.
-const serverEntry = path.join(pkgDir, ".next", "standalone", "server.js");
+// Embedded server bundle (phase-2 build: esbuild + nft trace, no Next
+// runtime). Cold start parses far fewer files than the Next server did.
+const serverEntry = path.join(pkgDir, "dist", "index.mjs");
 
 const { port, hostname, openBrowser } = parseLaunchOptions();
 const loopbackHostnames = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
@@ -38,9 +37,9 @@ if (!loopbackHostnames.has(hostname)) {
   );
 }
 
-// Always run the server JS entry with node directly — avoids .bin symlink
+// Always run the server entry with node directly — avoids .bin symlink
 // issues and path-with-spaces problems on Windows when shell: true is used.
-// The standalone server reads PORT/HOSTNAME from the environment.
+// The embedded server reads PORT/HOSTNAME from the environment.
 const child = spawn(process.execPath, [serverEntry], {
   cwd: path.dirname(serverEntry),
   stdio: ["inherit", "pipe", "inherit"],

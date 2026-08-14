@@ -14,7 +14,16 @@ Typecheck: `node_modules/.bin/tsc --noEmit`
 Lint: `npm run lint`  
 **Never run `next build` during dev** — pollutes `.next/` and breaks `npm run dev`.
 
-**Production builds are Next standalone** (`output: "standalone"`): `npm run build` = `next build` + `bin/prepare-standalone.js` (copies `.next/static` + `public` into `.next/standalone`). All runtime entrypoints — `bin/pi-web.js`, `electron/main.js` (via `server-child.js`) — run `.next/standalone/server.js` with `PORT`/`HOSTNAME` env vars, never the `next` CLI. The desktop package ships **only** `.next/standalone/**` (root `node_modules` excluded in electron-builder `files`).
+**Production builds no longer use the Next.js runtime** (phase 2). `npm run build` = `bin/build-all.js`:
+
+1. static client export (`next build` with `PI_WEB_EXPORT=1`, `output: "export"`; `app/api` + `proxy.ts` are stashed during export since route handlers/middleware are unsupported)
+2. `bin/build-route-manifest.js` → `server/routes.generated.ts` (37 routes)
+3. esbuild `server/index.ts` → `dist/index.mjs` + code-split chunks (packages external, `next/server` aliased to `server/next-shim.ts`)
+4. `@vercel/nft` traces runtime deps → `dist/node_modules` (`emitGlobs: false`, project-root-only)
+5. asset mirror: pi SDK themes/WASM/workers + whole `typebox`/`undici` packages → `dist/node_modules`
+6. static client copied to `dist/client/`
+
+All runtime entrypoints — `bin/pi-web.js`, `electron/main.js` (via `server-child.js`) — run `dist/index.mjs` with `PORT`/`HOSTNAME` env vars. The embedded server (`server/index.ts`) is a plain Node http server: `/api/*` → `lib/request-security` guard → `server/adapter.ts` route dispatch, everything else → `server/static.ts` file serving. The desktop package ships **only** `dist/**` (root `node_modules` excluded in electron-builder `files`).
 
 ---
 

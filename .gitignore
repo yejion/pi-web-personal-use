@@ -48,3 +48,6 @@ next-env.d.ts
 
 # crash dumps
 *.stackdump
+/dist/
+/out/
+/.build-stash*/

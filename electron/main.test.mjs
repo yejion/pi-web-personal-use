@@ -35,12 +35,12 @@ test("startup failure shows the error page with the message", async () => {
   assert.match(source, /loadFile\(ERROR_FILE, \{ query: \{ message: err\.message \} \}\)/);
 });
 
-test("desktop spawns the standalone server bundle, not the next CLI", async () => {
+test("desktop spawns the embedded server bundle, not the next CLI", async () => {
   const source = await readFile(new URL("./main.js", import.meta.url), "utf8");
 
-  assert.match(source, /\.next", "standalone", "server\.js"/);
+  assert.match(source, /"dist", "index\.mjs"/);
   assert.doesNotMatch(source, /next\/dist\/bin\/next/);
-  // The standalone server reads PORT/HOSTNAME from the environment.
+  // The embedded server reads PORT/HOSTNAME from the environment.
   assert.match(source, /PORT: String\(PORT\)/);
   assert.match(source, /HOSTNAME: HOST/);
 });

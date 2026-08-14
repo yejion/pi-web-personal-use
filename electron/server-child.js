@@ -23,12 +23,16 @@ if (Number.isInteger(parentPid) && parentPid > 0) {
   }, 1000).unref();
 }
 
-const [, , nextBin, ...nextArgs] = process.argv;
-if (!nextBin) {
-  console.error("server-child: missing next bin path");
+const [, , serverEntry, ...serverArgs] = process.argv;
+if (!serverEntry) {
+  console.error("server-child: missing server entry path");
   process.exit(1);
 }
 
-// Re-argv so Next's CLI parses as if it were launched directly.
-process.argv = [process.execPath, nextBin, ...nextArgs];
-require(nextBin);
+// Re-argv so the server parses as if it were launched directly.
+process.argv = [process.execPath, serverEntry, ...serverArgs];
+if (serverEntry.endsWith(".mjs")) {
+  import(serverEntry);
+} else {
+  require(serverEntry);
+}

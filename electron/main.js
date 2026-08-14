@@ -87,8 +87,8 @@ function isPortInUse() {
 
 function startPiWebServer() {
   const pkgDir = resolvePkgDir();
-  // Next standalone bundle: self-contained server with traced node_modules.
-  const serverEntry = path.join(pkgDir, ".next", "standalone", "server.js");
+  // Embedded server bundle (phase-2 build: no Next runtime involved).
+  const serverEntry = path.join(pkgDir, "dist", "index.mjs");
 
   appendLog(`\n[${new Date().toISOString()}] starting pi-web server\n`);
   appendLog(`  pkgDir: ${pkgDir}\n`);
@@ -107,7 +107,7 @@ function startPiWebServer() {
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1",
-      // The standalone server reads PORT/HOSTNAME from the environment.
+      // The embedded server reads PORT/HOSTNAME from the environment.
       PORT: String(PORT),
       HOSTNAME: HOST,
       // Lets the server child self-exit if this main process dies without a
