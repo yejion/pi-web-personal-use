@@ -32,7 +32,10 @@ if (!serverEntry) {
 // Re-argv so the server parses as if it were launched directly.
 process.argv = [process.execPath, serverEntry, ...serverArgs];
 if (serverEntry.endsWith(".mjs")) {
-  import(serverEntry);
+  // ESM import() takes a URL, not a filesystem path — a bare Windows path
+  // (D:\...) is parsed with "d:" as the URL scheme and crashes with
+  // ERR_UNSUPPORTED_ESM_URL_SCHEME.
+  import(require("url").pathToFileURL(serverEntry).href);
 } else {
   require(serverEntry);
 }
