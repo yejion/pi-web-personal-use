@@ -19,7 +19,11 @@ export function toWebRequest(req: IncomingMessage, host: string, port: number): 
     init.body = Readable.toWeb(req) as ReadableStream;
     init.duplex = "half"; // required by undici when body is a stream
   }
-  return new Request(url, init);
+  const request = new Request(url, init);
+  // NextRequest compat: handlers read request.nextUrl.searchParams. Next's
+  // nextUrl is a URL subclass — a plain URL covers every usage in app/api.
+  (request as { nextUrl?: URL }).nextUrl = new URL(url);
+  return request;
 }
 
 export async function sendWebResponse(res: ServerResponse, webRes: Response): Promise<void> {

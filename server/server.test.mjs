@@ -70,6 +70,16 @@ test("embedded server serves static client, APIs, and the origin guard", { skip:
   });
   assert.equal(evil.status, 403);
 
+  // Catch-all params must arrive as string[] (Next contract) — the adapter
+  // used to pass one string and this route 500'd: "segments.join is not a
+  // function". A disallowed path is a clean 403, not a 500.
+  const files = await fetch(BASE + "/api/files/D:/definitely-not-an-allowed-root-nope");
+  assert.equal(files.status, 403);
+
+  // nextUrl.searchParams consumers (directory picker, git, file index) — the
+  // Node→Web bridge must attach nextUrl or these all 500 on undefined.
+  assert.notEqual((await fetch(BASE + "/api/cwd/browse")).status, 500);
+
   // Unknown API + unknown static path
   assert.equal((await fetch(BASE + "/api/nope")).status, 404);
   assert.equal((await fetch(BASE + "/nope.txt")).status, 404);

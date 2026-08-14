@@ -4,17 +4,21 @@
 
 import { routes } from "./routes.generated";
 
-type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) => unknown;
+// Matches the Next route-handler contract: [param] → string, [...param] → string[].
+type RouteParams = Record<string, string | string[]>;
+type Handler = (req: Request, ctx: { params: Promise<RouteParams> }) => unknown;
 
 interface CompiledRoute {
   regex: RegExp;
   paramNames: string[];
+  catchAll: boolean[]; // parallel to paramNames
   module: Record<string, unknown>;
   score: number;
 }
 
 function compile(pattern: string): CompiledRoute {
   const paramNames: string[] = [];
+  const catchAllFlags: boolean[] = [];
   let catchAll = false;
   const score = pattern
     .split("/")
@@ -22,12 +26,14 @@ function compile(pattern: string): CompiledRoute {
       const catchAllMatch = /^\[\.\.\.([^\]]+)\]$/.exec(seg);
       if (catchAllMatch) {
         paramNames.push(catchAllMatch[1]);
+        catchAllFlags.push(true);
         catchAll = true;
         return "(.+)";
       }
       const paramMatch = /^\[([^\]]+)\]$/.exec(seg);
       if (paramMatch) {
         paramNames.push(paramMatch[1]);
+        catchAllFlags.push(false);
         return "([^/]+)";
       }
       return seg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -38,20 +44,24 @@ function compile(pattern: string): CompiledRoute {
   const segments = pattern.split("/").length;
   const dynamicCount = paramNames.length;
   const scoreValue = segments * 100 - dynamicCount * 10 - (catchAll ? 50 : 0);
-  return { regex: new RegExp(`^${score}$`), paramNames, module: {}, score: scoreValue };
+  return { regex: new RegExp(`^${score}$`), paramNames, catchAll: catchAllFlags, module: {}, score: scoreValue };
 }
 
 const compiled: CompiledRoute[] = routes
   .map((r) => ({ ...compile(r.pattern), module: r.module }))
   .sort((a, b) => b.score - a.score);
 
-export function matchApiRoute(pathname: string): { module: Record<string, unknown>; params: Record<string, string> } | null {
+export function matchApiRoute(pathname: string): { module: Record<string, unknown>; params: RouteParams } | null {
   for (const route of compiled) {
     const m = route.regex.exec(pathname);
     if (!m) continue;
-    const params: Record<string, string> = {};
+    const params: RouteParams = {};
     route.paramNames.forEach((name, i) => {
-      params[name] = decodeURIComponent(m[i + 1]);
+      // Catch-all ([...path]) params arrive as string[] under Next — split
+      // BEFORE decoding so an encoded %2F stays inside its own segment.
+      params[name] = route.catchAll[i]
+        ? m[i + 1].split("/").map(decodeURIComponent)
+        : decodeURIComponent(m[i + 1]);
     });
     return { module: route.module, params };
   }
